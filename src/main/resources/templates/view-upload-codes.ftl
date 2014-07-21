@@ -8,7 +8,6 @@
 	<div class="row-fluid">
 		<div class="span12">
 		<center><h3>Upload new codes</h3></center>
-		<legend></legend>
 		</div>
 	</div><br>
 	<div class="row-fluid">
@@ -71,7 +70,7 @@
 <script>
 	$( document ).ready(function(){
 		$('#upload-button').click(function(event){
-			$('form:first').attr('action','add/upload').submit();
+			$('form:first').attr('action','/add/upload').submit();
 		});
 	});
 </script>

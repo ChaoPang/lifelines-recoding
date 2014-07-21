@@ -3,9 +3,9 @@
 <@header/>
 <div class="row-fluid">
 	<div class="span12">
-		<center>View all codes</center>
+	<center><h3>View all codes</h3></center>
 	</div>
-</div>
+</div><br>
 <div class="row-fluid">
 	<div id="container" class="offset3 span6">
 		
@@ -15,13 +15,17 @@
 	$(document).ready(function(){
 		$.ajax({
 			type : 'GET',
-			url :  'view/alldocs',
+			url :  '/view/alldocs',
 			contentType : 'application/json',
 			success : function(data){
+				var results = data.results.sort(function(a,b){
+					return molgenis.naturalSort(b.columnValueMap.code, a.columnValueMap.code);
+				});
 				var table = $('<table />').addClass('table table-bordered');
-				table.append('<tr><th class="equal-width-th">Name</th><th>Frequency</th></tr>');
-				$.map(data.results, function(val, key){
-					table.append('<tr><td>' + key + '</th><th>' + val + '</th></tr>');
+				table.append('<tr><th>Name</th><th>Code</th><th>Frequency</th></tr>');
+				$.each(results, function(index, hit){
+					var columnValueMap = hit.columnValueMap;
+					table.append('<tr><td>' + columnValueMap.name + '</td><td>' + columnValueMap.code + '</td><td>' + hit.frequency + '</td></tr>');
 				});
 				$('#container').append(table);
 			}

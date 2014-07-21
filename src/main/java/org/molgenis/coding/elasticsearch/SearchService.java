@@ -1,7 +1,7 @@
 package org.molgenis.coding.elasticsearch;
 
+import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 
 import org.molgenis.data.Repository;
 
@@ -13,7 +13,7 @@ public interface SearchService
 
 	public List<Hit> getAllDocuments();
 
-	public Map<String, Integer> calculateTermFrequency(String fieldName);
+	public Collection<Hit> calculateTermFrequency(String sportField);
 
 	public List<Hit> search(String query, String field);
 }

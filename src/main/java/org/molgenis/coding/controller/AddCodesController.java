@@ -4,10 +4,14 @@ import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
 
 import org.apache.log4j.Logger;
 import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
 import org.molgenis.coding.elasticsearch.SearchService;
+import org.molgenis.data.AttributeMetaData;
+import org.molgenis.data.excel.ExcelRepository;
 import org.molgenis.data.excel.ExcelRepositoryCollection;
 import org.molgenis.data.processor.LowerCaseProcessor;
 import org.molgenis.data.processor.TrimProcessor;
@@ -25,6 +29,7 @@ public class AddCodesController
 {
 	private final SearchService elasticSearchImp;
 	private final static String VIEW_NAME = "view-upload-codes";
+	private final static List<String> ALLOWED_COLUMNS = Arrays.asList("name", "code");
 	private final static Logger logger = Logger.getLogger(AddCodesController.class);
 
 	@Autowired
@@ -62,7 +67,18 @@ public class AddCodesController
 				logger.info("The uploaded file path is : " + serverFile.getAbsolutePath());
 				ExcelRepositoryCollection collection = new ExcelRepositoryCollection(new File(
 						serverFile.getAbsolutePath()), new LowerCaseProcessor(), new TrimProcessor());
-				if (collection.getNumberOfSheets() > 0) elasticSearchImp.indexRepository(collection.getSheet(0));
+				if (collection.getNumberOfSheets() > 0)
+				{
+					ExcelRepository sheet = collection.getSheet(0);
+					if (validateExcelColumnHeaders(sheet))
+					{
+						elasticSearchImp.indexRepository(sheet);
+					}
+					else
+					{
+						model.addAttribute("message", "The columns are invalid. Please look at the example!");
+					}
+				}
 			}
 			catch (IOException e)
 			{
@@ -70,5 +86,19 @@ public class AddCodesController
 			}
 		}
 		return defaultView(model);
+	}
+
+	private boolean validateExcelColumnHeaders(ExcelRepository sheet)
+	{
+		int count = 0;
+		for (AttributeMetaData attribute : sheet.getEntityMetaData().getAttributes())
+		{
+			if (!ALLOWED_COLUMNS.contains(attribute.getName().toLowerCase()))
+			{
+				return false;
+			}
+			count++;
+		}
+		return count == ALLOWED_COLUMNS.size();
 	}
 }

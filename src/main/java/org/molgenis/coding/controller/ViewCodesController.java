@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 public class ViewCodesController
 {
 	private final static String VIEW_NAME = "view-all-codes";
-	private final static String DEFAULT_FIELD = "sport";
+	private final static String DEFAULT_FIELD = "name";
 	private final SearchService elasticSearchImp;
 
 	@Autowired

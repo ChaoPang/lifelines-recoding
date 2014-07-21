@@ -7,6 +7,7 @@ public class Hit
 	private final String documentId;
 	private final Float score;
 	private final Map<String, Object> columnValueMap;
+	private Integer frequency = 1;
 
 	public Hit(String documentId, Float score, Map<String, Object> columnValueMap)
 	{
@@ -28,5 +29,15 @@ public class Hit
 	public Map<String, Object> getColumnValueMap()
 	{
 		return columnValueMap;
+	}
+
+	public Integer getFrequency()
+	{
+		return frequency;
+	}
+
+	public void incrementFrequency()
+	{
+		this.frequency++;
 	}
 }

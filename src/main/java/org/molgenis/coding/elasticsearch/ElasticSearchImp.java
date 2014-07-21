@@ -3,6 +3,7 @@ package org.molgenis.coding.elasticsearch;
 import static org.elasticsearch.node.NodeBuilder.nodeBuilder;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -111,28 +112,28 @@ public class ElasticSearchImp implements SearchService
 	}
 
 	@Override
-	public Map<String, Integer> calculateTermFrequency(String fieldName)
+	public Collection<Hit> calculateTermFrequency(String sportField)
 	{
-		Map<String, Integer> termFrequency = new HashMap<String, Integer>();
+		Map<String, Hit> termFrequency = new HashMap<String, Hit>();
 		for (Hit hit : getAllDocuments())
 		{
-			if (hit.getColumnValueMap().containsKey((fieldName)))
+			if (hit.getColumnValueMap().containsKey((sportField)))
 			{
-				Object value = hit.getColumnValueMap().get(fieldName);
-				if (value != null)
+				Object sport = hit.getColumnValueMap().get(sportField);
+				if (sport != null)
 				{
-					if (!termFrequency.containsKey(value.toString()))
+					if (!termFrequency.containsKey(sport.toString()))
 					{
-						termFrequency.put(value.toString(), 1);
+						termFrequency.put(sport.toString(), hit);
 					}
 					else
 					{
-						termFrequency.put(value.toString(), (termFrequency.get(value) + 1));
+						termFrequency.get(sport.toString()).incrementFrequency();
 					}
 				}
 			}
 		}
-		return termFrequency;
+		return termFrequency.values();
 	}
 
 	@Override
