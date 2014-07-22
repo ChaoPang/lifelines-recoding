@@ -20,7 +20,10 @@
 			success : function(data){
 				var table = $('<table />').addClass('table table-bordered');
 				table.append('<tr><th>Name</th><th>Code</th><th>Frequency</th></tr>');
-				$.each(data.results, function(index, hit){
+				var results = data.results.sort(function(a,b){
+					return molgenis.naturalSort(b.columnValueMap.code, a.columnValueMap.code);
+				});
+				$.each(results, function(index, hit){
 					var columnValueMap = hit.columnValueMap;
 					table.append('<tr><td>' + columnValueMap.name + '</td><td>' + columnValueMap.code + '</td><td>' + hit.frequency + '</td></tr>');
 				});
