@@ -1,10 +1,8 @@
 package org.molgenis.coding;
 
-import java.io.IOException;
 import java.util.List;
 
-import org.molgenis.coding.elasticsearch.ElasticSearchImp;
-import org.molgenis.coding.elasticsearch.SearchService;
+import org.molgenis.coding.util.DutchNGramAlgorithm;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
@@ -27,8 +25,6 @@ import org.springframework.web.servlet.view.freemarker.FreeMarkerViewResolver;
 @ComponentScan("org.molgenis.coding")
 public class WebAppConfig extends WebMvcConfigurerAdapter
 {
-	private final static String indexName = "data";
-
 	@Override
 	public void addResourceHandlers(ResourceHandlerRegistry registry)
 	{
@@ -80,8 +76,8 @@ public class WebAppConfig extends WebMvcConfigurerAdapter
 	}
 
 	@Bean
-	public SearchService elasticSearch() throws IOException
+	public DutchNGramAlgorithm dutchNGramAlgorithm()
 	{
-		return new ElasticSearchImp(indexName);
+		return new DutchNGramAlgorithm();
 	}
 }
