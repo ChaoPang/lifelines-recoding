@@ -8,7 +8,9 @@
 		<script src="/js/jquery-ui-1.9.2.custom.min.js"></script>
 		<script src="/js/bootstrap.min.js"></script>
 		<script src="/js/common-function.js"></script>
+		<script src="/js/bootstrap-fileupload.min.js"></script>
 		<link rel="stylesheet" type="text/css" href="/css/bootstrap.min.css">
+		<link rel="stylesheet" type="text/css" href="/css/bootstrap-fileupload.min.css">
 		<link rel="stylesheet" type="text/css" href="/css/custom-app.css">
 	</head>
 	<body>
