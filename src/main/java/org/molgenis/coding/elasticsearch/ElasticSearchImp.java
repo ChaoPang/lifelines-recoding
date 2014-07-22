@@ -1,9 +1,6 @@
 package org.molgenis.coding.elasticsearch;
 
-import static org.elasticsearch.node.NodeBuilder.nodeBuilder;
-
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -20,11 +17,7 @@ import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.ShardSearchFailure;
 import org.elasticsearch.client.Client;
-import org.elasticsearch.common.settings.ImmutableSettings;
-import org.elasticsearch.common.settings.ImmutableSettings.Builder;
-import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.node.Node;
 import org.elasticsearch.search.SearchHit;
 import org.molgenis.data.Entity;
 import org.molgenis.data.Repository;
@@ -36,19 +29,18 @@ public class ElasticSearchImp implements SearchService
 {
 	private final String indexName;
 	private final Client client;
-	private final Node node;
 	private static final String INDEX_TYPE = "coding";
-	private static final String CONFIG_FILE_NAME = "elasticsearch.yml";
 	private static final Logger LOG = Logger.getLogger(ElasticSearchImp.class);
 	private static final DutchStemmer dutchStemmer = new DutchStemmer();
+	public static final String DEFAULT_FREQUENCY_FIELD = "frequency";
 
-	public ElasticSearchImp(String indexName)
+	public ElasticSearchImp(String indexName, Client client)
 	{
+		if (indexName == null) throw new IllegalArgumentException("indexName is null");
+		if (client == null) throw new IllegalArgumentException("Client is null");
+
 		this.indexName = indexName;
-		Builder builder = ImmutableSettings.settingsBuilder().loadFromClasspath(CONFIG_FILE_NAME);
-		Settings settings = builder.build();
-		node = nodeBuilder().settings(settings).local(true).node();
-		client = node.client();
+		this.client = client;
 		createIndexIfNotExists();
 	}
 
@@ -111,30 +103,31 @@ public class ElasticSearchImp implements SearchService
 		return parseSearchResponse(searchRequestBuilder);
 	}
 
-	@Override
-	public Collection<Hit> calculateTermFrequency(String sportField)
-	{
-		Map<String, Hit> termFrequency = new HashMap<String, Hit>();
-		for (Hit hit : getAllDocuments())
-		{
-			if (hit.getColumnValueMap().containsKey((sportField)))
-			{
-				Object sport = hit.getColumnValueMap().get(sportField);
-				if (sport != null)
-				{
-					if (!termFrequency.containsKey(sport.toString()))
-					{
-						termFrequency.put(sport.toString(), hit);
-					}
-					else
-					{
-						termFrequency.get(sport.toString()).incrementFrequency();
-					}
-				}
-			}
-		}
-		return termFrequency.values();
-	}
+	//
+	// @Override
+	// public Collection<Hit> calculateTermFrequency(String sportField)
+	// {
+	// Map<String, Hit> termFrequency = new HashMap<String, Hit>();
+	// for (Hit hit : getAllDocuments())
+	// {
+	// if (hit.getColumnValueMap().containsKey((sportField)))
+	// {
+	// Object sport = hit.getColumnValueMap().get(sportField);
+	// if (sport != null)
+	// {
+	// if (!termFrequency.containsKey(sport.toString()))
+	// {
+	// termFrequency.put(sport.toString(), hit);
+	// }
+	// else
+	// {
+	// termFrequency.get(sport.toString()).incrementFrequency();
+	// }
+	// }
+	// }
+	// }
+	// return termFrequency.values();
+	// }
 
 	@Override
 	public List<Hit> search(String query, String field)
@@ -168,7 +161,10 @@ public class ElasticSearchImp implements SearchService
 
 		for (SearchHit hit : searchResponse.getHits().hits())
 		{
-			documents.add(new Hit(hit.getId(), hit.getScore(), hit.sourceAsMap()));
+			if (hit.sourceAsMap().get(DEFAULT_FREQUENCY_FIELD) != null)
+			{
+				documents.add(new Hit(hit.getId(), hit.getScore(), hit.sourceAsMap()));
+			}
 		}
 		return documents;
 	}
@@ -222,6 +218,7 @@ public class ElasticSearchImp implements SearchService
 					{
 						doc.put(attrName, entity.get(attrName));
 					}
+					doc.put(DEFAULT_FREQUENCY_FIELD, 1);
 					IndexRequestBuilder indexRequestBuilder = client.prepareIndex(indexName, INDEX_TYPE);
 					indexRequestBuilder.setSource(doc);
 					bulkRequest.add(indexRequestBuilder);
