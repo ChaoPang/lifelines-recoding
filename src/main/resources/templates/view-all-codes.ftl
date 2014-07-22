@@ -18,12 +18,9 @@
 			url :  '/view/alldocs',
 			contentType : 'application/json',
 			success : function(data){
-				var results = data.results.sort(function(a,b){
-					return molgenis.naturalSort(b.columnValueMap.code, a.columnValueMap.code);
-				});
 				var table = $('<table />').addClass('table table-bordered');
 				table.append('<tr><th>Name</th><th>Code</th><th>Frequency</th></tr>');
-				$.each(results, function(index, hit){
+				$.each(data.results, function(index, hit){
 					var columnValueMap = hit.columnValueMap;
 					table.append('<tr><td>' + columnValueMap.name + '</td><td>' + columnValueMap.code + '</td><td>' + hit.frequency + '</td></tr>');
 				});

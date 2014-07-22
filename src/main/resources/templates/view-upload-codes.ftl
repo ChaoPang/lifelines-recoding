@@ -1,9 +1,6 @@
 <#include "template-header.ftl">
 <#include "template-footer.ftl">
 <@header/>
-<script src="/js/bootstrap-fileupload.min.js"></script>
-<link rel="stylesheet" type="text/css" href="/css/bootstrap-fileupload.min.css">
-
 <form method="POST" enctype="multipart/form-data">
 	<div class="row-fluid">
 		<div class="span12">

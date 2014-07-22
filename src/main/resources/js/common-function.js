@@ -1,5 +1,109 @@
 (function($, molgenis) {
 	
+	molgenis.createTable = function(hits, parentElement){
+		var table = $('<table />').addClass('table table-bordered');
+		$('<tr />').append('<th>Name</th><th>Code</th><th>Score</th><th>Frequency</th><th>Select</th>').appendTo(table);
+		$.each(hits, function(index, hit){
+			var columnValueMap = hit.columnValueMap;
+			var row = $('<tr />').append('<td>' + columnValueMap.name + '</td>').
+				append('<td>' + columnValueMap.code + '</td>').
+					append('<td>' + hit.score + '</td>').append('<td>' + hit.frequency + '</td>').
+						append('<td><input type="checkbox"></td>');
+			table.append(row);
+			row.data('searchHit', hit);
+		});
+		table.appendTo(parentElement);
+		
+		$.each(table.find('input:checkbox'), function(index, checkbox){
+			//when the checkbox is checked, the other checkbox are disabled
+			$(checkbox).click(function(){
+				if($(checkbox).is(':checked')){
+					table.find('input:checkbox:not(:eq(' + index + '))').attr('checked', false);
+				}
+			});
+		});
+	};
+	
+	molgenis.addCode = function(query, hit, callback){
+		var request = {
+			'name' : query,
+			'code' : hit.columnValueMap.code
+		};
+		$.ajax({
+			type : 'POST',
+			url :  '/add',
+			data : JSON.stringify(request),
+			contentType : 'application/json',
+			success : function(data){
+				if(callback) callback(data);
+			}
+		});
+	};
+	
+	molgenis.updateCode = function(documentId){
+		$.ajax({
+			type : 'POST',
+			url :  '/update/' + documentId,
+			contentType : 'application/json',
+			success : function(data){
+				console.log(data);
+			}
+		});
+	};
+	
+	molgenis.validateCodes = function(query, updateHit, parentElement, callback){
+		$.ajax({
+			type : 'POST',
+			url :  '/validate?score=' + updateHit.score + '&query=' + query,
+			contentType : 'application/json',
+			success : function(data){
+				$(parentElement).find('.alert').remove();
+				molgenis.createAlert([data], data.success ? 'success' : 'error', $(parentElement));
+				callback(data);
+			}
+		});
+	};
+	
+	molgenis.findCode = function(query, callback){
+		var request = {
+			'query' : query
+		};
+		$.ajax({
+			type : 'POST',
+			url :  '/find',
+			data : JSON.stringify(request),
+			contentType : 'application/json',
+			success : function(data){
+				if(callback) callback(data);
+			}
+		});
+	};
+	
+	molgenis.createAlert = function(alerts, type, container) {
+		if (type !== 'error' && type !== 'warning' && type !== 'success')
+			type = 'error';
+		if (container === undefined) {
+			container = $('.alerts');
+			container.empty();
+		}
+
+		var items = [];
+		items.push('<div class="alert alert-');
+		items.push(type);
+		items
+				.push('"><button type="button" class="close" data-dismiss="alert">&times;</button><strong>');
+		items.push(type.charAt(0).toUpperCase() + type.slice(1));
+		items.push('!</strong> ');
+		$.each(alerts, function(i, alert) {
+			if (i > 0)
+				items.push('<br/>');
+			items.push('<span>' + alert.message + '</span>');
+		});
+		items.push('</div>');
+
+		container.prepend(items.join(''));
+	};
+	
 	molgenis.naturalSort = function(a, b) {
 		var re = /(^-?[0-9]+(\.?[0-9]*)[df]?e?[0-9]?$|^0x[0-9a-f]+$|[0-9]+)/gi, sre = /(^[ ]*|[ ]*$)/g, dre = /(^([\w ]+,?[\w ]+)?[\w ]+,?[\w ]+\d+:\d+(:\d+)?[\w ]?|^\d{1,4}[\/\-]\d{1,4}[\/\-]\d{1,4}|^\w+, \w+ \d+, \d{4})/, hre = /^0x[0-9a-f]+$/i, ore = /^0/, i = function(
 				s) {

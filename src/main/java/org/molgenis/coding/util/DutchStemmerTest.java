@@ -13,10 +13,12 @@ public class DutchStemmerTest
 		String test1 = "mountainbiking";
 		String test2 = "mountainbike";
 		String test3 = "mountainbiken";
+		String test4 = "zwemmen";
 
 		System.out.println("1: Test string is " + test1 + "; stemmed string is " + stem(test1));
 		System.out.println("2: Test string is " + test2 + "; stemmed string is " + stem(test2));
 		System.out.println("3: Test string is " + test3 + "; stemmed string is " + stem(test3));
+		System.out.println("3: Test string is " + test4 + "; stemmed string is " + stem(test4));
 	}
 
 	public static String stem(String word)

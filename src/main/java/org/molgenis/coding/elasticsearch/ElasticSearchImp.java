@@ -12,10 +12,12 @@ import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRequest;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
+import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexRequestBuilder;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.ShardSearchFailure;
+import org.elasticsearch.action.update.UpdateResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
@@ -73,11 +75,10 @@ public class ElasticSearchImp implements SearchService
 	}
 
 	@Override
-	public void indexDocument(String field, Object value)
+	public void indexDocument(Map<String, Object> doc)
 	{
+		doc.put(DEFAULT_FREQUENCY_FIELD, 1);
 		BulkRequestBuilder bulkRequest = client.prepareBulk();
-		Map<String, Object> doc = new HashMap<String, Object>();
-		doc.put(field, value);
 		IndexRequestBuilder indexRequestBuilder = client.prepareIndex(indexName, INDEX_TYPE);
 		indexRequestBuilder.setSource(doc);
 		bulkRequest.add(indexRequestBuilder);
@@ -95,6 +96,18 @@ public class ElasticSearchImp implements SearchService
 	}
 
 	@Override
+	public Hit getDocumentById(String documentId)
+	{
+		GetResponse response = client.prepareGet(indexName, INDEX_TYPE, documentId).execute().actionGet();
+		Hit hit = null;
+		if (response.isExists())
+		{
+			hit = new Hit(response.getId(), (float) 1, response.getSourceAsMap());
+		}
+		return hit;
+	}
+
+	@Override
 	public List<Hit> getAllDocuments()
 	{
 		SearchRequestBuilder searchRequestBuilder = client.prepareSearch(indexName);
@@ -102,32 +115,6 @@ public class ElasticSearchImp implements SearchService
 		searchRequestBuilder.setSize(Integer.MAX_VALUE);
 		return parseSearchResponse(searchRequestBuilder);
 	}
-
-	//
-	// @Override
-	// public Collection<Hit> calculateTermFrequency(String sportField)
-	// {
-	// Map<String, Hit> termFrequency = new HashMap<String, Hit>();
-	// for (Hit hit : getAllDocuments())
-	// {
-	// if (hit.getColumnValueMap().containsKey((sportField)))
-	// {
-	// Object sport = hit.getColumnValueMap().get(sportField);
-	// if (sport != null)
-	// {
-	// if (!termFrequency.containsKey(sport.toString()))
-	// {
-	// termFrequency.put(sport.toString(), hit);
-	// }
-	// else
-	// {
-	// termFrequency.get(sport.toString()).incrementFrequency();
-	// }
-	// }
-	// }
-	// }
-	// return termFrequency.values();
-	// }
 
 	@Override
 	public List<Hit> search(String query, String field)
@@ -141,6 +128,22 @@ public class ElasticSearchImp implements SearchService
 
 		searchRequestbuilder.setQuery(QueryBuilders.queryString(queryStringBuilder.toString()));
 		return parseSearchResponse(searchRequestbuilder);
+	}
+
+	@Override
+	public void updateIndex(String documentId, String updateScript)
+	{
+		LOG.info("Going to update document of type [" + INDEX_TYPE + "] with Id : " + documentId);
+
+		UpdateResponse updateResponse = client.prepareUpdate(indexName, INDEX_TYPE, documentId).setRetryOnConflict(3)
+				.setRefresh(true).setScript("ctx._source." + updateScript).execute().actionGet();
+
+		if (updateResponse == null)
+		{
+			throw new ElasticsearchException("update failed.");
+		}
+
+		LOG.info("Update done.");
 	}
 
 	private List<Hit> parseSearchResponse(SearchRequestBuilder searchRequestbuilder)
@@ -161,10 +164,7 @@ public class ElasticSearchImp implements SearchService
 
 		for (SearchHit hit : searchResponse.getHits().hits())
 		{
-			if (hit.sourceAsMap().get(DEFAULT_FREQUENCY_FIELD) != null)
-			{
-				documents.add(new Hit(hit.getId(), hit.getScore(), hit.sourceAsMap()));
-			}
+			documents.add(new Hit(hit.getId(), hit.getScore(), hit.sourceAsMap()));
 		}
 		return documents;
 	}
@@ -172,12 +172,12 @@ public class ElasticSearchImp implements SearchService
 	private String fuzzyQueryProcess(String query)
 	{
 		StringBuilder fuzzyQueryString = new StringBuilder();
-		String[] words = query.split("\\s");
+		String[] words = query.trim().split("\\s");
 		for (int i = 0; i < words.length; i++)
 		{
 			dutchStemmer.setCurrent(words[i]);
 			dutchStemmer.stem();
-			fuzzyQueryString.append(dutchStemmer.getCurrent()).append("~0.7");
+			fuzzyQueryString.append(dutchStemmer.getCurrent()).append("~0.6");
 			if (i < words.length - 1)
 			{
 				fuzzyQueryString.append(' ');

@@ -19,7 +19,6 @@ import org.springframework.web.bind.annotation.ResponseBody;
 public class ViewCodesController
 {
 	private final static String VIEW_NAME = "view-all-codes";
-	private final static String DEFAULT_FIELD = "name";
 	private final SearchService elasticSearchImp;
 
 	@Autowired
@@ -41,7 +40,7 @@ public class ViewCodesController
 	public Map<String, Object> getDocs() throws IOException
 	{
 		Map<String, Object> results = new HashMap<String, Object>();
-		results.put("results", elasticSearchImp.calculateTermFrequency(DEFAULT_FIELD));
+		results.put("results", elasticSearchImp.getAllDocuments());
 		return results;
 	}
 }
