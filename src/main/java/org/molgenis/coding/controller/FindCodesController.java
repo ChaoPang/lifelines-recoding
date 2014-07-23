@@ -4,7 +4,6 @@ import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -12,7 +11,7 @@ import java.util.Map;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.molgenis.coding.elasticsearch.Hit;
 import org.molgenis.coding.elasticsearch.SearchService;
-import org.molgenis.coding.util.DutchNGramAlgorithm;
+import org.molgenis.coding.ngram.NGramService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -31,15 +30,15 @@ public class FindCodesController
 	private final static String DEFAULT_NAME_FIELD = "name";
 	private final static String DEFAULT_CODE_FIELD = "code";
 	private final SearchService elasticSearchImp;
-	private final DutchNGramAlgorithm dutchNGramAlgorithm;
+	private final NGramService nGramService;
 
 	@Autowired
-	public FindCodesController(SearchService elasticSearchImp, DutchNGramAlgorithm dutchNGramAlgorithm)
+	public FindCodesController(SearchService elasticSearchImp, NGramService ngramService)
 	{
 		if (elasticSearchImp == null) throw new IllegalArgumentException("ElasticSearch is null");
-		if (dutchNGramAlgorithm == null) throw new IllegalArgumentException("DutchNGramAlgorithm is null");
+		if (ngramService == null) throw new IllegalArgumentException("NGramService is null");
 		this.elasticSearchImp = elasticSearchImp;
-		this.dutchNGramAlgorithm = dutchNGramAlgorithm;
+		this.nGramService = ngramService;
 	}
 
 	@RequestMapping(method = RequestMethod.GET)
@@ -60,19 +59,7 @@ public class FindCodesController
 			Object field = request.get("field");
 			String queryString = request.get("query").toString();
 			List<Hit> searchResults = elasticSearchImp.search(queryString, field == null ? null : field.toString());
-			for (Hit hit : searchResults)
-			{
-				if (hit.getColumnValueMap().containsKey(DEFAULT_NAME_FIELD))
-				{
-					hit.setScore(dutchNGramAlgorithm.stringMatching(queryString,
-							hit.getColumnValueMap().get(DEFAULT_NAME_FIELD).toString()));
-				}
-				else
-				{
-					hit.setScore((float) 0);
-				}
-			}
-			Collections.sort(searchResults);
+			nGramService.calculateNGramSimilarity(queryString, DEFAULT_NAME_FIELD, searchResults);
 			results.put("results", searchResults);
 		}
 		return results;
@@ -84,6 +71,7 @@ public class FindCodesController
 	Map<String, Object> data) throws IOException, ParseException
 	{
 		Map<String, Object> results = new HashMap<String, Object>();
+		results.put("data", data);
 		for (String validField : Arrays.asList("name", "code"))
 		{
 			if (!data.containsKey(validField))

@@ -2,6 +2,7 @@ package org.molgenis.coding;
 
 import java.util.List;
 
+import org.molgenis.coding.ngram.NGramService;
 import org.molgenis.coding.util.DutchNGramAlgorithm;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
@@ -79,5 +80,11 @@ public class WebAppConfig extends WebMvcConfigurerAdapter
 	public DutchNGramAlgorithm dutchNGramAlgorithm()
 	{
 		return new DutchNGramAlgorithm();
+	}
+
+	@Bean
+	public NGramService nGramService()
+	{
+		return new NGramService(dutchNGramAlgorithm());
 	}
 }

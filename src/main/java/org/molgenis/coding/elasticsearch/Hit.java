@@ -7,12 +7,13 @@ public class Hit implements Comparable<Hit>
 	private final String documentId;
 	private final Map<String, Object> columnValueMap;
 	private final Integer frequency;
+	private final Float luceneScore;
 	private Float score;
 
-	public Hit(String documentId, Float score, Map<String, Object> columnValueMap)
+	public Hit(String documentId, Float luceneScore, Map<String, Object> columnValueMap)
 	{
 		this.documentId = documentId;
-		this.score = score;
+		this.luceneScore = luceneScore;
 		this.columnValueMap = columnValueMap;
 		if (this.columnValueMap.containsKey(ElasticSearchImp.DEFAULT_FREQUENCY_FIELD))
 		{
@@ -37,6 +38,11 @@ public class Hit implements Comparable<Hit>
 	public Float getScore()
 	{
 		return score;
+	}
+
+	public Float getLuceneScore()
+	{
+		return luceneScore;
 	}
 
 	public Map<String, Object> getColumnValueMap()

@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 import org.apache.log4j.Logger;
 import org.elasticsearch.ElasticsearchException;
@@ -35,6 +36,9 @@ public class ElasticSearchImp implements SearchService
 	private static final Logger LOG = Logger.getLogger(ElasticSearchImp.class);
 	private static final DutchStemmer dutchStemmer = new DutchStemmer();
 	public static final String DEFAULT_FREQUENCY_FIELD = "frequency";
+	private static final String LUCENE_ESCAPE_CHARS_VALUE = "[-&+!\\|\\(\\){}\\[\\]\"\\~\\*\\?:\\\\\\/]";
+	private static final Pattern LUCENE_PATTERN_VALUE = Pattern.compile(LUCENE_ESCAPE_CHARS_VALUE);
+	private static final String REPLACEMENT_STRING = "\\\\$0";
 
 	public ElasticSearchImp(String indexName, Client client)
 	{
@@ -123,8 +127,10 @@ public class ElasticSearchImp implements SearchService
 		searchRequestbuilder.setTypes(INDEX_TYPE);
 
 		StringBuilder queryStringBuilder = new StringBuilder();
-		if (field != null) queryStringBuilder.append(field).append(":(").append(fuzzyQueryProcess(query)).append(')');
-		else queryStringBuilder.append(fuzzyQueryProcess(query));
+		String fuzzyQueryProcess = fuzzyQueryProcess(escapeValue(query));
+		if (field != null) queryStringBuilder.append(field).append(":(").append(fuzzyQueryProcess(escapeValue(query)))
+				.append(')');
+		else queryStringBuilder.append(fuzzyQueryProcess);
 
 		searchRequestbuilder.setQuery(QueryBuilders.queryString(queryStringBuilder.toString()));
 		return parseSearchResponse(searchRequestbuilder);
@@ -249,5 +255,10 @@ public class ElasticSearchImp implements SearchService
 			}
 			LOG.info("Index [" + indexName + "] created");
 		}
+	}
+
+	public static String escapeValue(String value)
+	{
+		return LUCENE_PATTERN_VALUE.matcher(value).replaceAll(REPLACEMENT_STRING);
 	}
 }
