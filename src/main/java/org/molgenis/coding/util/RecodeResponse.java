@@ -15,7 +15,7 @@ public class RecodeResponse
 	{
 		this.queryString = queryString;
 		this.hit = hit;
-		identifiers = new HashSet<String>();
+		this.identifiers = new HashSet<String>();
 	}
 
 	public String getQueryString()

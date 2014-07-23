@@ -7,14 +7,21 @@ import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
+import javax.servlet.http.HttpServletResponse;
+
+import org.apache.commons.io.IOUtils;
 import org.apache.log4j.Logger;
 import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
 import org.molgenis.coding.elasticsearch.Hit;
@@ -25,8 +32,11 @@ import org.molgenis.data.AttributeMetaData;
 import org.molgenis.data.Entity;
 import org.molgenis.data.excel.ExcelRepository;
 import org.molgenis.data.excel.ExcelRepositoryCollection;
+import org.molgenis.data.excel.ExcelSheetWriter;
+import org.molgenis.data.excel.ExcelWriter;
 import org.molgenis.data.processor.LowerCaseProcessor;
 import org.molgenis.data.processor.TrimProcessor;
+import org.molgenis.data.support.MapEntity;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -72,10 +82,13 @@ public class ViewRecodeController
 	@RequestMapping(value = "/finish", method = RequestMethod.GET)
 	public String finishedRecoding(Model model)
 	{
-		isRecoding = false;
-		mappedActivities.clear();
-		rawActivities.clear();
-		return defaultView(model);
+		if (rawActivities.size() == 0)
+		{
+			isRecoding = false;
+			mappedActivities.clear();
+			rawActivities.clear();
+		}
+		return "redirect:/recode";
 	}
 
 	@RequestMapping(value = "/retrieve", method = RequestMethod.GET, produces = APPLICATION_JSON_VALUE)
@@ -96,17 +109,38 @@ public class ViewRecodeController
 		if (data.get("name") != null && data.get("code") != null)
 		{
 			elasticSearchImp.indexDocument(data);
-			String activityName = data.get("name").toString();
-			rawActivities.get(activityName).getHit().setScore((float) 100);
-			if (!mappedActivities.containsKey(activityName))
+			try
 			{
-				mappedActivities.put(activityName, rawActivities.get(activityName));
-				rawActivities.remove(activityName);
+				Thread.sleep(1000);
+
+				Set<String> keySet = rawActivities.keySet();
+				for (String activityName : keySet)
+				{
+					List<Hit> searchHits = elasticSearchImp.search(activityName, null);
+					nGramService.calculateNGramSimilarity(activityName, "name", searchHits);
+					for (Hit hit : searchHits)
+					{
+						if (hit.getScore().intValue() >= THRESHOLD)
+						{
+							// Add/Remove the items to the matched /unmatched
+							// cateogires for which the
+							// matching scores have improved due to the manual
+							// curation
+							if (!mappedActivities.containsKey(activityName))
+							{
+								mappedActivities.put(activityName, new RecodeResponse(activityName, hit));
+								mappedActivities.get(activityName).getIdentifiers()
+										.addAll(rawActivities.get(activityName).getIdentifiers());
+								rawActivities.remove(activityName);
+							}
+						}
+						break;
+					}
+				}
 			}
-			else
+			catch (InterruptedException e)
 			{
-				mappedActivities.get(activityName).getIdentifiers()
-						.addAll(rawActivities.get(activityName).getIdentifiers());
+				new RuntimeException(e.getMessage());
 			}
 		}
 	}
@@ -193,7 +227,46 @@ public class ViewRecodeController
 				model.addAttribute("message", e.getMessage());
 			}
 		}
-		return defaultView(model);
+		return "redirect:/recode";
+	}
+
+	@RequestMapping(value = "/download", method = RequestMethod.GET)
+	public void download(HttpServletResponse response) throws IOException
+	{
+		response.setContentType("application/vnd.ms-excel");
+		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+		response.addHeader("Content-Disposition",
+				"attachment; filename=recoding-download-" + dateFormat.format(new Date()) + ".xls");
+
+		ExcelWriter writer = null;
+		try
+		{
+			List<String> columnHeaders = new ArrayList<String>();
+			columnHeaders.addAll(ALLOWED_COLUMNS);
+			columnHeaders.add("code");
+			writer = new ExcelWriter(response.getOutputStream());
+			ExcelSheetWriter sheet = writer.createWritable("recoding", columnHeaders);
+			for (Entry<String, RecodeResponse> entry : mappedActivities.entrySet())
+			{
+				String activityName = entry.getKey();
+				RecodeResponse recodeResponse = entry.getValue();
+				Map<String, Object> columnValueMap = recodeResponse.getHit().getColumnValueMap();
+
+				for (String identifier : recodeResponse.getIdentifiers())
+				{
+					MapEntity entity = new MapEntity();
+					entity.set("name", activityName);
+					entity.set("identifier", identifier);
+					entity.set("code", columnValueMap.get("code"));
+					sheet.add(entity);
+				}
+			}
+			sheet.close();
+		}
+		finally
+		{
+			IOUtils.closeQuietly(writer);
+		}
 	}
 
 	private boolean validateExcelColumnHeaders(ExcelRepository sheet)
