@@ -25,7 +25,7 @@
 					$('<tr />').append('<th>Input</th><th>Individuals</th>' + (matched ? '<th>Matched code</th><th>Score</th>' : '<th style="text-align:center;">Curation</th>')).appendTo(table);
 					$.each(matchingResults, function(index, recodeResponse){
 						var row = $('<tr />').append('<td>' + recodeResponse.queryString + '</td>').
-							append('<td>' + recodeResponse.identifiers.join(',') + '</td>');
+							append('<td>' + recodeResponse.identifiers.length + '</td>');
 						if(matched){
 							row.append('<td>' + recodeResponse.hit.columnValueMap.code + ' : ' + recodeResponse.hit.columnValueMap.name + '</td>').
 								append('<td>' + recodeResponse.hit.score + '%</td>');

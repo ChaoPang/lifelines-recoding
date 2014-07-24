@@ -109,38 +109,29 @@ public class ViewRecodeController
 		if (data.get("name") != null && data.get("code") != null)
 		{
 			elasticSearchImp.indexDocument(data);
-			try
+			Set<String> keySet = rawActivities.keySet();
+			for (String activityName : keySet)
 			{
-				Thread.sleep(1000);
-
-				Set<String> keySet = rawActivities.keySet();
-				for (String activityName : keySet)
+				List<Hit> searchHits = elasticSearchImp.search(activityName, null);
+				nGramService.calculateNGramSimilarity(activityName, "name", searchHits);
+				for (Hit hit : searchHits)
 				{
-					List<Hit> searchHits = elasticSearchImp.search(activityName, null);
-					nGramService.calculateNGramSimilarity(activityName, "name", searchHits);
-					for (Hit hit : searchHits)
+					if (hit.getScore().intValue() >= THRESHOLD)
 					{
-						if (hit.getScore().intValue() >= THRESHOLD)
+						// Add/Remove the items to the matched /unmatched
+						// cateogires for which the
+						// matching scores have improved due to the manual
+						// curation
+						if (!mappedActivities.containsKey(activityName))
 						{
-							// Add/Remove the items to the matched /unmatched
-							// cateogires for which the
-							// matching scores have improved due to the manual
-							// curation
-							if (!mappedActivities.containsKey(activityName))
-							{
-								mappedActivities.put(activityName, new RecodeResponse(activityName, hit));
-								mappedActivities.get(activityName).getIdentifiers()
-										.addAll(rawActivities.get(activityName).getIdentifiers());
-								rawActivities.remove(activityName);
-							}
+							mappedActivities.put(activityName, new RecodeResponse(activityName, hit));
+							mappedActivities.get(activityName).getIdentifiers()
+									.addAll(rawActivities.get(activityName).getIdentifiers());
+							rawActivities.remove(activityName);
 						}
-						break;
 					}
+					break;
 				}
-			}
-			catch (InterruptedException e)
-			{
-				new RuntimeException(e.getMessage());
 			}
 		}
 	}

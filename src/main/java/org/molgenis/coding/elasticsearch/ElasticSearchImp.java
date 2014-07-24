@@ -38,7 +38,7 @@ public class ElasticSearchImp implements SearchService
 	public static final String DEFAULT_FREQUENCY_FIELD = "frequency";
 	private static final String LUCENE_ESCAPE_CHARS_VALUE = "[-&+!\\|\\(\\){}\\[\\]\"\\~\\*\\?:\\\\\\/]";
 	private static final Pattern LUCENE_PATTERN_VALUE = Pattern.compile(LUCENE_ESCAPE_CHARS_VALUE);
-	private static final String REPLACEMENT_STRING = "\\\\$0";
+	private static final String REPLACEMENT_STRING = "\\s";
 
 	public ElasticSearchImp(String indexName, Client client)
 	{
@@ -86,13 +86,12 @@ public class ElasticSearchImp implements SearchService
 		IndexRequestBuilder indexRequestBuilder = client.prepareIndex(indexName, INDEX_TYPE);
 		indexRequestBuilder.setSource(doc);
 		bulkRequest.add(indexRequestBuilder);
-		BulkResponse response = bulkRequest.execute().actionGet();
+		BulkResponse response = bulkRequest.setRefresh(true).execute().actionGet();
 		LOG.info("Request done");
 		if (LOG.isDebugEnabled())
 		{
 			LOG.debug("BulkResponse:" + response);
 		}
-
 		if (response.hasFailures())
 		{
 			throw new ElasticsearchException(response.buildFailureMessage());
