@@ -109,7 +109,7 @@ public class ViewRecodeController
 		if (data.get("name") != null && data.get("code") != null)
 		{
 			elasticSearchImp.indexDocument(data);
-			Set<String> keySet = rawActivities.keySet();
+			Set<String> keySet = new HashSet<String>(rawActivities.keySet());
 			for (String activityName : keySet)
 			{
 				List<Hit> searchHits = elasticSearchImp.search(activityName, null);
