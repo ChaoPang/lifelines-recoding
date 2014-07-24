@@ -10,6 +10,10 @@
 			}
 		});
 		function createReportTable(matchingResults, parentElement, resultContainer, matched){
+			//Sort results based on similarity score from high to low
+			matchingResults = matchingResults.sort(function(a,b){
+				return molgenis.naturalSort(b.hit.score, a.hit.score);
+			});
 			var totalNumber = 0;
 			$.each(matchingResults, function(index, recodeResponse){
 				totalNumber += recodeResponse.identifiers.length;
