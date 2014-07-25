@@ -53,10 +53,10 @@ import org.springframework.web.multipart.MultipartFile;
 public class ViewRecodeController
 {
 	private boolean isRecoding = false;
+	private Integer THRESHOLD = 80;
 	private final static String VIEW_NAME = "view-recode-report";
 	private final SearchService elasticSearchImp;
 	private final NGramService nGramService;
-	private final static Integer THRESHOLD = 80;
 	private final static List<String> ALLOWED_COLUMNS = Arrays.asList("identifier", "name");
 	private final static Logger logger = Logger.getLogger(ViewRecodeController.class);
 	private final Map<String, RecodeResponse> mappedActivities = new HashMap<String, RecodeResponse>();
@@ -74,6 +74,7 @@ public class ViewRecodeController
 	@RequestMapping(method = RequestMethod.GET)
 	public String defaultView(Model model)
 	{
+		model.addAttribute("threshold", THRESHOLD);
 		model.addAttribute("hidForm", isRecoding);
 		model.addAttribute("viewId", VIEW_NAME);
 		return VIEW_NAME;
@@ -130,10 +131,61 @@ public class ViewRecodeController
 							rawActivities.remove(activityName);
 						}
 					}
-					break;
 				}
 			}
 		}
+	}
+
+	@RequestMapping(value = "/threshold", method = RequestMethod.POST)
+	public String threshold(@RequestParam("threshold")
+	String threshold, Model model)
+	{
+		Integer previousThreshold = THRESHOLD;
+		try
+		{
+			THRESHOLD = Integer.parseInt(threshold);
+		}
+		catch (Exception e)
+		{
+			THRESHOLD = previousThreshold;
+		}
+
+		// New threshold is smaller than the previous one, some of the unmatched
+		// items should be moved to the matched category
+		if (THRESHOLD < previousThreshold)
+		{
+			Set<String> keys = new HashSet<String>(rawActivities.keySet());
+			for (String activityName : keys)
+			{
+				RecodeResponse recodeResponse = rawActivities.get(activityName);
+				if (recodeResponse.getHit().getScore() >= THRESHOLD)
+				{
+					if (!mappedActivities.containsKey(activityName))
+					{
+						mappedActivities.put(activityName, recodeResponse);
+						rawActivities.remove(activityName);
+					}
+				}
+			}
+		}
+		else if (THRESHOLD > previousThreshold)
+		{
+			Set<String> keys = new HashSet<String>(mappedActivities.keySet());
+			for (String activityName : keys)
+			{
+				RecodeResponse recodeResponse = mappedActivities.get(activityName);
+				if (recodeResponse.getHit().getScore() < THRESHOLD)
+				{
+					if (!rawActivities.containsKey(activityName))
+					{
+						rawActivities.put(activityName, recodeResponse);
+						mappedActivities.remove(activityName);
+					}
+				}
+			}
+		}
+
+		return "redirect:/recode";
 	}
 
 	@RequestMapping(value = "/upload", method = RequestMethod.POST, headers = "Content-Type=multipart/form-data")

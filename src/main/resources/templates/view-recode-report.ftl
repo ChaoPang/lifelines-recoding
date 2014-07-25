@@ -82,6 +82,19 @@
 		</div>
 	</div><br><br>
 	<div class="row-fluid">
+		<div class="offset4 span4">
+			<div class="row-fluid">
+				<div class="span6">
+					Current threshold : ${threshold}%
+				</div>
+				<div class="span6">
+					<input name="threshold" type="text" style="width:50px;float:right;"/>
+					<button id="update-threshold-button" class="btn btn-float-right" type="button">Update</button>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="row-fluid">
 		<div class="offset4 span4 well">
 			<div id="matched-container" class="row-fluid"></div><br>
 			<div id="unmatched-container" class="row-fluid"></div><br><br>
@@ -106,6 +119,12 @@
 			$('form:first').attr({
 				'method' : 'GET',
 				'action' : '/recode/download'
+			}).submit();
+		});
+		$('#update-threshold-button').click(function(){
+			$('form:first').attr({
+				'method' : 'POST',
+				'action' : '/recode/threshold/'
 			}).submit();
 		});
 	});

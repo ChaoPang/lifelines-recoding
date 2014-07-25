@@ -5,7 +5,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
 
 import org.apache.log4j.Logger;
 import org.elasticsearch.ElasticsearchException;
@@ -36,9 +35,6 @@ public class ElasticSearchImp implements SearchService
 	private static final Logger LOG = Logger.getLogger(ElasticSearchImp.class);
 	private static final DutchStemmer dutchStemmer = new DutchStemmer();
 	public static final String DEFAULT_FREQUENCY_FIELD = "frequency";
-	private static final String LUCENE_ESCAPE_CHARS_VALUE = "[-&+!\\|\\(\\){}\\[\\]\"\\~\\*\\?:\\\\\\/]";
-	private static final Pattern LUCENE_PATTERN_VALUE = Pattern.compile(LUCENE_ESCAPE_CHARS_VALUE);
-	private static final String REPLACEMENT_STRING = "\\s";
 
 	public ElasticSearchImp(String indexName, Client client)
 	{
@@ -177,15 +173,18 @@ public class ElasticSearchImp implements SearchService
 	private String fuzzyQueryProcess(String query)
 	{
 		StringBuilder fuzzyQueryString = new StringBuilder();
-		String[] words = query.trim().split("\\s");
+		String[] words = query.trim().split("\\s+");
 		for (int i = 0; i < words.length; i++)
 		{
-			dutchStemmer.setCurrent(words[i]);
-			dutchStemmer.stem();
-			fuzzyQueryString.append(dutchStemmer.getCurrent()).append("~0.6");
-			if (i < words.length - 1)
+			if (!words[i].isEmpty())
 			{
-				fuzzyQueryString.append(' ');
+				dutchStemmer.setCurrent(words[i].trim());
+				dutchStemmer.stem();
+				fuzzyQueryString.append(dutchStemmer.getCurrent()).append("~0.6");
+				if (i < words.length - 1)
+				{
+					fuzzyQueryString.append(' ');
+				}
 			}
 		}
 
@@ -258,6 +257,6 @@ public class ElasticSearchImp implements SearchService
 
 	public static String escapeValue(String value)
 	{
-		return LUCENE_PATTERN_VALUE.matcher(value).replaceAll(REPLACEMENT_STRING);
+		return value.replaceAll("[\\W]", " ");
 	}
 }

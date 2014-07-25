@@ -10,6 +10,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 public class NGramService
 {
 	private final DutchNGramAlgorithm dutchNGramAlgorithm;
+	private final static String REGEX = "[\\W]";
+	private final static String REPLACEMENT = " ";
 
 	@Autowired
 	public NGramService(DutchNGramAlgorithm dutchNGramAlgorithm)
@@ -24,8 +26,8 @@ public class NGramService
 		{
 			if (hit.getColumnValueMap().containsKey(field))
 			{
-				hit.setScore(dutchNGramAlgorithm.stringMatching(queryString, hit.getColumnValueMap().get(field)
-						.toString()));
+				hit.setScore(dutchNGramAlgorithm.stringMatching(replace(queryString), replace(hit.getColumnValueMap()
+						.get(field).toString())));
 			}
 			else
 			{
@@ -33,5 +35,11 @@ public class NGramService
 			}
 		}
 		Collections.sort(searchResults);
+	}
+
+	private String replace(String word)
+	{
+		if (word != null) return word.replaceAll(REGEX, REPLACEMENT);
+		return word;
 	}
 }
