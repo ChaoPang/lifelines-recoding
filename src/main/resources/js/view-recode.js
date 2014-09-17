@@ -1,5 +1,5 @@
 (function($, molgenis) {
-	molgenis.retrieveResult = function(matchedContainer, unmatchedContainer, resultContainer){
+	molgenis.retrieveResult = function(matchedContainer, unmatchedContainer, resultContainer, codeSystem){
 		$.ajax({
 			type : 'GET',
 			url :  '/recode/retrieve',
@@ -37,21 +37,51 @@
 							var iconButton = $('<button class="btn" type="button"><i class="icon-pencil"></i></button>');
 							$('<td />').css('text-align', 'center').append(iconButton).appendTo(row);
 							iconButton.click(function(){
-								molgenis.findCode(recodeResponse.queryString, function(data){
-									var options = {
+								resultContainer.find('div.row-fluid:gt(0)').remove();
+								molgenis.findCode(recodeResponse.queryString, null, codeSystem, function(data){
+									table.remove();
+									var default_options = {
 										'queryString' : recodeResponse.queryString,
 										'hits' : data.results,
-										'parentElement' : table.parents('div.row-fluid:first'),
+										'parentElement' : resultContainer,
 										'addCode' : addCodeFunction
 									}
-									molgenis.createTable(options);
-									table.hide().append('body');
+									var inputTextQuery = $('<input type="text" placeholder="custom search"/>');
+									var matchButton = $('<button class="btn" type="button"><i class="icon-search"></i></button>');
+									var clearButton = $('<button class="btn" type="button"><i class="icon-trash"></i></button>');
+									var customSearchGroup = $('<div />').addClass('input-append').css('float','right').append(inputTextQuery).append(matchButton).append(clearButton);
+									var controlDiv = $('<div class="row-fluid"></div>').appendTo(default_options.parentElement);
+									
+									$('<div />').addClass('span6').append('Original text : <strong>' + recodeResponse.queryString + '</strong>').appendTo(controlDiv);
+									$('<div />').addClass('span6').append(customSearchGroup).appendTo(controlDiv);
+									molgenis.createTable(default_options);
+									
+									//attach click event to the buttons
+									matchButton.click(function(){
+										if($(inputTextQuery).val() !== ''){
+											molgenis.findCode(inputTextQuery.val(), recodeResponse.queryString, codeSystem, function(data){
+												resultContainer.find('div.row-fluid:gt(1)').remove();
+												var options = {
+													'queryString' : default_options.queryString,
+													'hits' : data.results,
+													'parentElement' : resultContainer,
+													'addCode' : addCodeFunction
+												};
+												molgenis.createTable(options);
+											});
+											$(clearButton).click(function(){;
+												resultContainer.find('div.row-fluid:gt(1)').remove();
+												molgenis.createTable(default_options);
+												inputTextQuery.val('');
+											});
+										}
+									});
 								});
 							});
 						}
 						row.appendTo(table);
 					});
-					var layoutDiv = $('<div />').addClass('offset3 span6').append('<br><div class="large-text"><strong><center>' + (matched ? 'Matched results' : 'Unmatched results') + '</center></strong></div><br>').append(table);
+					var layoutDiv = $('<div />').addClass('row-fluid').append('<br><div class="large-text"><strong><center>' + (matched ? 'Matched results' : 'Unmatched results') + '</center></strong></div><br>').append(table);
 					resultContainer.empty().append(layoutDiv);
 				});	
 			}
@@ -60,7 +90,8 @@
 		function addCodeFunction(query, hit){
 			var request = {
 				'name' : query,
-				'code' : hit.columnValueMap.code
+				'code' : hit.columnValueMap.code,
+				'codesystem' : hit.columnValueMap.codesystem
 			};
 			$.ajax({
 				type : 'POST',

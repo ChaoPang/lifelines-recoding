@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.lucene.queryparser.classic.ParseException;
+import org.molgenis.coding.elasticsearch.ElasticSearchImp;
 import org.molgenis.coding.elasticsearch.Hit;
 import org.molgenis.coding.elasticsearch.SearchService;
 import org.molgenis.coding.ngram.NGramService;
@@ -27,8 +28,6 @@ import org.springframework.web.bind.annotation.ResponseBody;
 public class FindCodesController
 {
 	private final static String VIEW_NAME = "view-find-codes";
-	private final static String DEFAULT_NAME_FIELD = "name";
-	private final static String DEFAULT_CODE_FIELD = "code";
 	private final SearchService elasticSearchImp;
 	private final NGramService nGramService;
 
@@ -58,8 +57,14 @@ public class FindCodesController
 		{
 			Object field = request.get("field");
 			String queryString = request.get("query").toString();
-			List<Hit> searchResults = elasticSearchImp.search(queryString, field == null ? null : field.toString());
-			nGramService.calculateNGramSimilarity(queryString, DEFAULT_NAME_FIELD, searchResults);
+			String originalQueryString = (request.containsKey("originalQuery") && request.get("originalQuery") != null) ? request
+					.get("originalQuery").toString() : queryString;
+			String codeSystem = (request.containsKey("codeSystem") && request.get("codeSystem") != null) ? request.get(
+					"codeSystem").toString() : null;
+			List<Hit> searchResults = elasticSearchImp.search(codeSystem, queryString,
+					field == null ? null : field.toString());
+			nGramService.calculateNGramSimilarity(originalQueryString, ElasticSearchImp.DEFAULT_NAME_FIELD,
+					searchResults);
 			results.put("results", searchResults);
 		}
 		return results;
@@ -72,7 +77,7 @@ public class FindCodesController
 	{
 		Map<String, Object> results = new HashMap<String, Object>();
 		results.put("data", data);
-		for (String validField : Arrays.asList("name", "code"))
+		for (String validField : Arrays.asList("name", "code", "codesystem"))
 		{
 			if (!data.containsKey(validField))
 			{
@@ -81,7 +86,18 @@ public class FindCodesController
 				return results;
 			}
 		}
-		elasticSearchImp.indexDocument(data);
+		String documentType = data.containsKey(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD)
+				&& data.get(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD) != null ? data.get(
+				ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD).toString() : null;
+
+		if (documentType == null)
+		{
+			results.put("success", false);
+			results.put("message", "code system is invalid");
+			return results;
+		}
+
+		elasticSearchImp.indexDocument(ElasticSearchImp.addDefaultFields(data), documentType);
 		results.put("success", true);
 		results.put("message", "new term " + data.get("name") + " has been added to the code " + data.get("code"));
 		return results;
@@ -97,21 +113,23 @@ public class FindCodesController
 		StringBuilder updateScriptStringBuilder = new StringBuilder();
 		updateScriptStringBuilder.append("frequency").append('=').append((hit.getFrequency() + 1));
 		elasticSearchImp.updateIndex(hit.getDocumentId(), updateScriptStringBuilder.toString());
-		results.put("message", "The code " + hit.getColumnValueMap().get(DEFAULT_CODE_FIELD).toString() + ", name "
-				+ hit.getColumnValueMap().get(DEFAULT_NAME_FIELD) + " has been updated!");
+		results.put("message", "The code "
+				+ hit.getColumnValueMap().get(ElasticSearchImp.DEFAULT_CODE_FIELD).toString() + ", name "
+				+ hit.getColumnValueMap().get(ElasticSearchImp.DEFAULT_NAME_FIELD) + " has been updated!");
 		return results;
 	}
 
-	@RequestMapping(value = "/validate", method = RequestMethod.POST, consumes = APPLICATION_JSON_VALUE, produces = APPLICATION_JSON_VALUE)
+	@RequestMapping(value = "/validate", method = RequestMethod.POST, produces = APPLICATION_JSON_VALUE)
 	@ResponseBody
 	public Map<String, Object> validateDoc(@RequestParam(required = true)
 	String query, @RequestParam(required = true)
-	Float score) throws IOException, ParseException
+	String name) throws IOException, ParseException
 	{
 		Map<String, Object> results = new HashMap<String, Object>();
 
-		if (query != null && score != null)
+		if (query != null && name != null)
 		{
+			Float score = nGramService.ngramSimilarity(query, name);
 			if (score.intValue() >= 80 && score.intValue() <= 100)
 			{
 				results.put("success", true);

@@ -34,7 +34,11 @@ public class ElasticSearchImp implements SearchService
 	private static final String INDEX_TYPE = "coding";
 	private static final Logger LOG = Logger.getLogger(ElasticSearchImp.class);
 	private static final DutchStemmer dutchStemmer = new DutchStemmer();
+	public final static String DEFAULT_NAME_FIELD = "name";
+	public final static String DEFAULT_CODE_FIELD = "code";
 	public static final String DEFAULT_FREQUENCY_FIELD = "frequency";
+	public static final String DEFAULT_ORIGINAL_FIELD = "original";
+	public static final String DEFAULT_CODESYSTEM_FIELD = "codesystem";
 
 	public ElasticSearchImp(String indexName, Client client)
 	{
@@ -50,6 +54,15 @@ public class ElasticSearchImp implements SearchService
 	@Override
 	public void indexRepository(Repository repository)
 	{
+		Iterator<Entity> iterator = repository.iterator();
+		if (iterator.hasNext())
+		{
+			Entity firstEntity = iterator.next();
+			Map<String, Object> data = new HashMap<String, Object>();
+			data.put("name", firstEntity.getString(DEFAULT_CODESYSTEM_FIELD));
+			indexDocument(data);
+		}
+
 		Iterator<BulkRequestBuilder> requests = buildIndexRequest(repository);
 		while (requests.hasNext())
 		{
@@ -77,9 +90,14 @@ public class ElasticSearchImp implements SearchService
 	@Override
 	public void indexDocument(Map<String, Object> doc)
 	{
-		doc.put(DEFAULT_FREQUENCY_FIELD, 1);
+		indexDocument(doc, INDEX_TYPE);
+	}
+
+	@Override
+	public void indexDocument(Map<String, Object> doc, String documentType)
+	{
 		BulkRequestBuilder bulkRequest = client.prepareBulk();
-		IndexRequestBuilder indexRequestBuilder = client.prepareIndex(indexName, INDEX_TYPE);
+		IndexRequestBuilder indexRequestBuilder = client.prepareIndex(indexName, documentType);
 		indexRequestBuilder.setSource(doc);
 		bulkRequest.add(indexRequestBuilder);
 		BulkResponse response = bulkRequest.setRefresh(true).execute().actionGet();
@@ -107,19 +125,25 @@ public class ElasticSearchImp implements SearchService
 	}
 
 	@Override
-	public List<Hit> getAllDocuments()
+	public List<Hit> getAllCodeSystems()
+	{
+		return getAllCodeSystems(INDEX_TYPE);
+	}
+
+	@Override
+	public List<Hit> getAllCodeSystems(String documentType)
 	{
 		SearchRequestBuilder searchRequestBuilder = client.prepareSearch(indexName);
-		searchRequestBuilder.setTypes(INDEX_TYPE);
+		searchRequestBuilder.setTypes(documentType);
 		searchRequestBuilder.setSize(Integer.MAX_VALUE);
 		return parseSearchResponse(searchRequestBuilder);
 	}
 
 	@Override
-	public List<Hit> search(String query, String field)
+	public List<Hit> search(String documentType, String query, String field)
 	{
 		SearchRequestBuilder searchRequestbuilder = client.prepareSearch(indexName);
-		searchRequestbuilder.setTypes(INDEX_TYPE);
+		if (documentType != null) searchRequestbuilder.setTypes(documentType);
 
 		StringBuilder queryStringBuilder = new StringBuilder();
 		String fuzzyQueryProcess = fuzzyQueryProcess(escapeValue(query));
@@ -210,23 +234,29 @@ public class ElasticSearchImp implements SearchService
 			public BulkRequestBuilder next()
 			{
 				BulkRequestBuilder bulkRequest = client.prepareBulk();
-
 				final long maxRow = Math.min(row + docsPerBulk, rows);
-
 				for (; row < maxRow; ++row)
 				{
 					Entity entity = it.next();
 					Map<String, Object> doc = new HashMap<String, Object>();
-
 					for (String attrName : entity.getAttributeNames())
 					{
 						doc.put(attrName, entity.get(attrName));
 					}
-					doc.put(DEFAULT_FREQUENCY_FIELD, 1);
-					IndexRequestBuilder indexRequestBuilder = client.prepareIndex(indexName, INDEX_TYPE);
-					indexRequestBuilder.setSource(doc);
-					bulkRequest.add(indexRequestBuilder);
-					if ((row + 1) % 100 == 0) LOG.info("Added [" + (row + 1) + "] documents");
+					doc.put(DEFAULT_FREQUENCY_FIELD, Integer.valueOf(1));
+					doc.put(DEFAULT_ORIGINAL_FIELD, true);
+					String documentType = entity.getString(DEFAULT_CODESYSTEM_FIELD);
+					if (documentType != null)
+					{
+						IndexRequestBuilder indexRequestBuilder = client.prepareIndex(indexName, documentType);
+						indexRequestBuilder.setSource(doc);
+						bulkRequest.add(indexRequestBuilder);
+						if ((row + 1) % 100 == 0) LOG.info("Added [" + (row + 1) + "] documents");
+					}
+					else
+					{
+						LOG.info("Failed to create index request for document : " + entity);
+					}
 				}
 				return bulkRequest;
 			}
@@ -258,5 +288,12 @@ public class ElasticSearchImp implements SearchService
 	public static String escapeValue(String value)
 	{
 		return value.replaceAll("[\\W]", " ");
+	}
+
+	public static Map<String, Object> addDefaultFields(Map<String, Object> data)
+	{
+		data.put(DEFAULT_FREQUENCY_FIELD, Integer.valueOf(1));
+		data.put(DEFAULT_ORIGINAL_FIELD, false);
+		return data;
 	}
 }

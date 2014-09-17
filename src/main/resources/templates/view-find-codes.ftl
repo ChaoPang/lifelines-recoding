@@ -23,15 +23,13 @@
 	</div>
 </div><br>
 <div class="row-fluid">
-	<div class="span12">
-		<div id="container" class="row-fluid"></div>
-	</div>
+	<div id="container" class="offset3 span6"></div>
 </div>
 <script>
 	$(document).ready(function(){
 		$('#match-button').click(function(){
 			if($('#query').val() !== ''){
-				molgenis.findCode($('#query').val(), function(data){
+				molgenis.findCode($('#query').val(), null, null, function(data){
 					var options = {
 						'queryString' : $('#query').val(),
 						'hits' : data.results,

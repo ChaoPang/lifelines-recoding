@@ -29,7 +29,7 @@ public class AddCodesController
 {
 	private final SearchService elasticSearchImp;
 	private final static String VIEW_NAME = "view-upload-codes";
-	private final static List<String> ALLOWED_COLUMNS = Arrays.asList("name", "code");
+	private final static List<String> ALLOWED_COLUMNS = Arrays.asList("name", "code", "codesystem");
 	private final static Logger logger = Logger.getLogger(AddCodesController.class);
 
 	@Autowired

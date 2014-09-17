@@ -3,17 +3,25 @@
 <@header/>
 <script src="/js/view-recode.js"></script>
 <#if hidForm?? && !hidForm>
-<div class="row-fluid">
-	<div class="span12">
-	<center><h3>Recode data</h3></center>
-	</div>
-</div><br><br>
-<div class="row-fluid">
-	<div class="span12">
-		<center>Upload a dataset that needs to be recoded in <u>excel</u> format. Please include individual identifiers in dataset for reference.</center>
-	</div>
-</div><br>
 <form method="POST" enctype="multipart/form-data">
+	<div class="row-fluid">
+		<div class="span12">
+		<center><h3>Recode data</h3></center>
+		</div>
+	</div><br><br>
+	<div class="row-fluid">
+		<div class="offset3 span6 well">
+			<strong>Select a code system : </strong>
+			<div style="float:right;">
+				<select id="selectedCodeSystem" name="selectedCodeSystem"></select>
+			</div>
+		</div>
+	</div>
+	<div class="row-fluid">
+		<div class="span12">
+			<center>Upload a dataset that needs to be recoded in <u>excel</u> format. Please include individual identifiers in dataset for reference.</center>
+		</div>
+	</div><br>
 	<div class="row-fluid">
 		<div class="span12">
 			<center>
@@ -72,10 +80,17 @@
 		$('#upload-button').click(function(event){
 			$('form:first').attr('action','/recode/upload').submit();
 		});
+		molgenis.findAllCodeSystems(function(data){
+			var select = $('#selectedCodeSystem');
+			$.each(data.results, function(index, hit){
+				select.append('<option value="' + hit.columnValueMap.name + '">' + hit.columnValueMap.name + '</option>');
+			});
+		});
 	});
 </script>
 <#else>
 <form method="GET">
+	<input id="selectedCodeSystem" name="selectedCodeSystem" type="hidden"
 	<div class="row-fluid">
 		<div class="span12">
 		<center><h3>Report for recoding</h3></center>
@@ -104,11 +119,13 @@
 			</div>		
 		</div>
 	</div>
-	<div id="result-container" class="row-fluid"></div>
+	<div class="row-fluid">
+		<div id="result-container" class="offset3 span6"></div>
+	</div>
 </form>
 <script>
 	$(document).ready(function(){
-		molgenis.retrieveResult($('#matched-container'), $('#unmatched-container'), $('#result-container'));
+		molgenis.retrieveResult($('#matched-container'), $('#unmatched-container'), $('#result-container'), '${selectedCodeSystem}');
 		$('#finished-button').click(function(){
 			$('form:first').attr({
 				'method' : 'GET',

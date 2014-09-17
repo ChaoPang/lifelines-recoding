@@ -1,8 +1,10 @@
 package org.molgenis.coding.util;
 
 import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Set;
 
 import org.tartarus.snowball.ext.DutchStemmer;
@@ -112,7 +114,7 @@ public class DutchNGramAlgorithm
 		float totalToken = Math.max(inputStringTokens.size(), ontologyTermTokens.size());
 		inputStringTokens.retainAll(ontologyTermTokens);
 		matchedTokens = inputStringTokens.size();
-		DecimalFormat df = new DecimalFormat("#0.000");
+		DecimalFormat df = new DecimalFormat("#.###", new DecimalFormatSymbols(Locale.ENGLISH));
 		return Float.parseFloat(df.format(matchedTokens / totalToken * 100));
 	}
 

@@ -29,22 +29,19 @@
 				});
 			});
 			
-			var infoContainer = $('<div />').addClass('row-fluid');
-			var tableContainer = $('<div />').addClass('row-fluid');
-			var controlContainer = $('<div />').addClass('row-fluid');
-			var selectCodeButton = $('<button class="btn btn-float-right" type="button">Select code</button>');
-			
-			$('<div />').addClass('offset3 span6').append('Your input : <strong>' + queryString + '</strong>').appendTo(infoContainer);
-			$('<div />').addClass('offset3 span6').append(table).appendTo(tableContainer);
-			$('<div />').addClass('span9').append(selectCodeButton).appendTo(controlContainer);
-			$('<div />').addClass('span12').append(infoContainer).append(tableContainer).append(controlContainer).appendTo(parentElement);
+			var tableContainer = $('<div />').addClass('row-fluid').appendTo(parentElement);
+			var controlContainer = $('<div />').addClass('row-fluid').appendTo(parentElement);
+			var selectCodeButton = $('<button class="btn btn-primary btn-float-right" type="button">Select code</button>');
+			var selectUnknowButton = $('<button class="btn btn-danger btn-float-right-align" type="button">Unknow code</button>');
+			$('<div />').addClass('span12').append(table).appendTo(tableContainer);
+			$('<div />').addClass('span12').append(selectUnknowButton).append(selectCodeButton).appendTo(controlContainer);
 			
 			selectCodeButton.click(function(){
 				$.each(table.find('input:checkbox'), function(index, checkbox){
 					if($(checkbox).is(':checked')){
 						var searchHit = $(checkbox).parents('tr:first').data('searchHit');
 						molgenis.validateCodes(queryString, searchHit, tableContainer.children('div:first'), function(data){
-							var addCodeButton = $('<button class="btn btn-primary btn-float-right" type="button">Add code</button>');
+							var addCodeButton = $('<button class="btn btn-float-right" type="button">Add code</button>');
 							selectCodeButton.siblings('button').remove();
 							selectCodeButton.after(addCodeButton);
 							addCodeButton.click(function(){
@@ -63,15 +60,35 @@
 					}
 				});
 			});
+			
+			selectUnknowButton.click(function(){
+				addCodeFunction(queryString, {'columnValueMap' : {'code' : '99999', 'codesystem' : hits[0].codesystem}});
+				setTimeout(function(){
+					location.reload();
+				},1500);
+			});
+			
 		}else{
-			parentElement.append('<br><br><div class="middle-text"><center>No codes found for this input <strong>' + queryString + '</strong>. Please change your input string and try again!</center></div>');
+			parentElement.append('<div class="row-fluid middle-text"><br><br><center>No codes found for this input <strong>' + queryString + '</strong>. Please change your input string and try again!</center></div>');
 		}
 	};
+	
+	molgenis.findAllCodeSystems = function(callback){
+		$.ajax({
+			type : 'GET',
+			url :  '/view/codesystems',
+			contentType : 'application/json',
+			success : function(data){
+				if(callback) callback(data)
+			}
+		});
+	}
 	
 	molgenis.defaultAddCode = function(query, hit, callback){
 		var request = {
 			'name' : query,
-			'code' : hit.columnValueMap.code
+			'code' : hit.columnValueMap.code,
+			'codesystem' : hit.columnValueMap.codesystem
 		};
 		$.ajax({
 			type : 'POST',
@@ -98,7 +115,7 @@
 	molgenis.validateCodes = function(query, updateHit, parentElement, callback){
 		$.ajax({
 			type : 'POST',
-			url :  '/validate?score=' + updateHit.score + '&query=' + query,
+			url :  '/validate?name=' + updateHit.name + '&query=' + query,
 			contentType : 'application/json',
 			success : function(data){
 				$(parentElement).find('.alert').remove();
@@ -108,9 +125,11 @@
 		});
 	};
 	
-	molgenis.findCode = function(query, callback){
+	molgenis.findCode = function(query, originalQuery, codeSystem, callback){
 		var request = {
-			'query' : query
+			'query' : query,
+			'originalQuery' : originalQuery,
+			'codeSystem' : codeSystem
 		};
 		$.ajax({
 			type : 'POST',

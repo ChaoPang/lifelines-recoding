@@ -22,8 +22,10 @@ import java.util.Set;
 import javax.servlet.http.HttpServletResponse;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
+import org.molgenis.coding.elasticsearch.ElasticSearchImp;
 import org.molgenis.coding.elasticsearch.Hit;
 import org.molgenis.coding.elasticsearch.SearchService;
 import org.molgenis.coding.ngram.NGramService;
@@ -54,6 +56,7 @@ public class ViewRecodeController
 {
 	private boolean isRecoding = false;
 	private Integer THRESHOLD = 80;
+	private String selectedCodeSystem = null;
 	private final static String VIEW_NAME = "view-recode-report";
 	private final SearchService elasticSearchImp;
 	private final NGramService nGramService;
@@ -74,6 +77,7 @@ public class ViewRecodeController
 	@RequestMapping(method = RequestMethod.GET)
 	public String defaultView(Model model)
 	{
+		model.addAttribute("selectedCodeSystem", selectedCodeSystem);
 		model.addAttribute("threshold", THRESHOLD);
 		model.addAttribute("hidForm", isRecoding);
 		model.addAttribute("viewId", VIEW_NAME);
@@ -107,13 +111,15 @@ public class ViewRecodeController
 	public void addDoc(@RequestBody
 	Map<String, Object> data)
 	{
-		if (data.get("name") != null && data.get("code") != null)
+		Object codeSystem = data.get(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD);
+		if (data.get(ElasticSearchImp.DEFAULT_NAME_FIELD) != null
+				&& data.get(ElasticSearchImp.DEFAULT_CODE_FIELD) != null && codeSystem != null)
 		{
-			elasticSearchImp.indexDocument(data);
+			elasticSearchImp.indexDocument(ElasticSearchImp.addDefaultFields(data), codeSystem.toString());
 			Set<String> keySet = new HashSet<String>(rawActivities.keySet());
 			for (String activityName : keySet)
 			{
-				List<Hit> searchHits = elasticSearchImp.search(activityName, null);
+				List<Hit> searchHits = elasticSearchImp.search(codeSystem.toString(), activityName, null);
 				nGramService.calculateNGramSimilarity(activityName, "name", searchHits);
 				for (Hit hit : searchHits)
 				{
@@ -125,7 +131,8 @@ public class ViewRecodeController
 						// curation
 						if (!mappedActivities.containsKey(activityName))
 						{
-							mappedActivities.put(activityName, new RecodeResponse(activityName, hit));
+							mappedActivities.put(activityName, rawActivities.get(activityName));
+							mappedActivities.get(activityName).setHit(hit);
 							mappedActivities.get(activityName).getIdentifiers()
 									.addAll(rawActivities.get(activityName).getIdentifiers());
 							rawActivities.remove(activityName);
@@ -190,13 +197,16 @@ public class ViewRecodeController
 
 	@RequestMapping(value = "/upload", method = RequestMethod.POST, headers = "Content-Type=multipart/form-data")
 	public String uploadFileHandler(@RequestParam("file")
-	MultipartFile file, Model model) throws InvalidFormatException
+	MultipartFile file, @RequestParam(value = "selectedCodeSystem", required = false)
+	String codeSystem, Model model) throws InvalidFormatException
 	{
-		if (!file.isEmpty())
+		if (!file.isEmpty() && !StringUtils.isEmpty(codeSystem))
 		{
 			byte[] bytes;
 			try
 			{
+				selectedCodeSystem = codeSystem;
+
 				bytes = file.getBytes();
 				String rootPath = System.getProperty("java.io.tmpdir");
 				File dir = new File(rootPath + File.separator + "tmpFiles");
@@ -228,7 +238,7 @@ public class ViewRecodeController
 							String activityName = entity.getString("name");
 							if (individualIdentifier != null && activityName != null)
 							{
-								List<Hit> searchHits = elasticSearchImp.search(activityName, null);
+								List<Hit> searchHits = elasticSearchImp.search(codeSystem, activityName, null);
 								nGramService.calculateNGramSimilarity(activityName, "name", searchHits);
 								for (Hit hit : searchHits)
 								{
@@ -236,7 +246,8 @@ public class ViewRecodeController
 									{
 										if (!mappedActivities.containsKey(activityName))
 										{
-											mappedActivities.put(activityName, new RecodeResponse(activityName, hit));
+											mappedActivities.put(activityName, new RecodeResponse(activityName, hit,
+													hit.getScore()));
 										}
 										mappedActivities.get(activityName).getIdentifiers().add(individualIdentifier);
 									}
@@ -244,7 +255,8 @@ public class ViewRecodeController
 									{
 										if (!rawActivities.containsKey(activityName))
 										{
-											rawActivities.put(activityName, new RecodeResponse(activityName, hit));
+											rawActivities.put(activityName,
+													new RecodeResponse(activityName, hit, hit.getScore()));
 										}
 										rawActivities.get(activityName).getIdentifiers().add(individualIdentifier);
 									}
@@ -287,6 +299,8 @@ public class ViewRecodeController
 			List<String> columnHeaders = new ArrayList<String>();
 			columnHeaders.addAll(ALLOWED_COLUMNS);
 			columnHeaders.add("code");
+			columnHeaders.add("codesystem");
+			columnHeaders.add("similarity");
 			writer = new ExcelWriter(response.getOutputStream());
 			ExcelSheetWriter sheet = writer.createWritable("recoding", columnHeaders);
 			for (Entry<String, RecodeResponse> entry : mappedActivities.entrySet())
@@ -301,6 +315,8 @@ public class ViewRecodeController
 					entity.set("name", activityName);
 					entity.set("identifier", identifier);
 					entity.set("code", columnValueMap.get("code"));
+					entity.set("codesystem", columnValueMap.get("codesystem"));
+					entity.set("similarity", recodeResponse.getOriginalSimilarityScore());
 					sheet.add(entity);
 				}
 			}

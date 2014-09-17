@@ -37,6 +37,11 @@ public class NGramService
 		Collections.sort(searchResults);
 	}
 
+	public float ngramSimilarity(String queryString, String codeName)
+	{
+		return dutchNGramAlgorithm.stringMatching(replace(queryString), replace(codeName));
+	}
+
 	private String replace(String word)
 	{
 		if (word != null) return word.replaceAll(REGEX, REPLACEMENT);

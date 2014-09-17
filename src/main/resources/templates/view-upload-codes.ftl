@@ -41,25 +41,14 @@
 					<tr>
 						<th class="equal-width-th">Name</th>
 						<th class="equal-width-th">Code</th>
+						<th class="equal-width-th">CodeSystem</th>
 					</tr>
 				</thead>
 				<tbody>
-					<tr>
-						<td>MOUNTAINBIKE</td>
-						<td>01009</td>
-					</tr>
-					<tr>
-						<td>WIELRENNEN</td>
-						<td>01040</td>
-					</tr>
-					<tr>
-						<td>RACEFIETS</td>
-						<td>01040</td>
-					</tr>
-					<tr>
-						<td>SPINNEN</td>
-						<td>02019</td>
-					</tr>
+					<tr><td>MOUNTAINBIKE</td><td>01009</td><td>MET</td></tr>
+					<tr><td>WIELRENNEN</td><td>01040</td><td>MET</td></tr>
+					<tr><td>RACEFIETS</td><td>01040</td><td>MET</td></tr>
+					<tr><td>SPINNEN</td><td>02019</td><td>MET</td></tr>
 				</tbody>
 			</table>
 		</div>

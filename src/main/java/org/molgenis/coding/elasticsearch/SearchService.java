@@ -11,9 +11,13 @@ public interface SearchService
 
 	public void indexDocument(Map<String, Object> doc);
 
-	public List<Hit> getAllDocuments();
+	public void indexDocument(Map<String, Object> doc, String documentType);
 
-	public List<Hit> search(String query, String field);
+	public List<Hit> getAllCodeSystems();
+
+	public List<Hit> getAllCodeSystems(String documentType);
+
+	public List<Hit> search(String documentType, String query, String field);
 
 	public void updateIndex(String documentId, String updateScript);
 

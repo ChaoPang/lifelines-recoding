@@ -12,6 +12,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 @Controller
@@ -35,12 +36,22 @@ public class ViewCodesController
 		return VIEW_NAME;
 	}
 
-	@RequestMapping(method = RequestMethod.GET, value = "/alldocs", produces = APPLICATION_JSON_VALUE)
+	@RequestMapping(method = RequestMethod.GET, value = "/codesystems", produces = APPLICATION_JSON_VALUE)
 	@ResponseBody
 	public Map<String, Object> getDocs() throws IOException
 	{
 		Map<String, Object> results = new HashMap<String, Object>();
-		results.put("results", elasticSearchImp.getAllDocuments());
+		results.put("results", elasticSearchImp.getAllCodeSystems());
+		return results;
+	}
+
+	@RequestMapping(method = RequestMethod.GET, value = "/alldocs", produces = APPLICATION_JSON_VALUE)
+	@ResponseBody
+	public Map<String, Object> getDocs(@RequestParam("codeSystem")
+	String codeSystem) throws IOException
+	{
+		Map<String, Object> results = new HashMap<String, Object>();
+		results.put("results", elasticSearchImp.getAllCodeSystems(codeSystem));
 		return results;
 	}
 }

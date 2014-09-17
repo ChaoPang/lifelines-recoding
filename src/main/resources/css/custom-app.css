@@ -3,12 +3,16 @@
 }
 
 .equal-width-th {
-	width : 50%;	
+	width : 33.3333%;	
 }
 
 .btn-float-right {
 	float : right;
 	margin-right : 20px;
+}
+
+.btn-float-right-align {
+	float : right;
 }
 
 .large-text {
