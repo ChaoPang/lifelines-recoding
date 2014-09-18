@@ -9,13 +9,14 @@
 		
 		if(hits.length > 0){
 			var table = $('<table />').addClass('table table-bordered');
-			$('<tr />').append('<th>Name</th><th>Code</th><th>Score</th><th>Frequency</th><th>Select</th>').appendTo(table);
+			$('<tr />').append('<th>Name</th><th>Code</th><th>Code system</th><th>Score</th><th>Frequency</th><th>Select</th>').appendTo(table);
 			$.each(hits, function(index, hit){
 				var columnValueMap = hit.columnValueMap;
 				var row = $('<tr />').append('<td>' + columnValueMap.name + '</td>').
 					append('<td>' + columnValueMap.code + '</td>').
-						append('<td>' + hit.score + '%</td>').append('<td>' + hit.frequency + '</td>').
-							append('<td><input type="checkbox"></td>');
+						append('<td>' + columnValueMap.codesystem + '</td>').
+							append('<td>' + hit.score + '%</td>').append('<td>' + hit.frequency + '</td>').
+								append('<td><input type="checkbox"></td>');
 				table.append(row);
 				row.data('searchHit', hit);
 			});
