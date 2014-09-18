@@ -62,7 +62,16 @@
 			});
 			
 			selectUnknowButton.click(function(){
-				addCodeFunction(queryString, {'columnValueMap' : {'code' : '99999', 'codesystem' : hits[0].codesystem}});
+				var hit = {
+					'columnValueMap' : {
+						'code' : '99999',
+						'name' : 'Unknown',
+						'codesystem' : hits[0].columnValueMap.codesystem,
+					},
+					'query' : queryString,
+					'score' : '0'
+				};
+				addCodeFunction(queryString, hit);
 				setTimeout(function(){
 					location.reload();
 				},1500);
