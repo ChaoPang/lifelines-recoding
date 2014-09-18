@@ -109,38 +109,64 @@ public class ViewRecodeController
 	@RequestMapping(value = "/add", method = RequestMethod.POST, consumes = APPLICATION_JSON_VALUE)
 	@ResponseStatus(OK)
 	public void addDoc(@RequestBody
-	Map<String, Object> data)
+	Map<String, Object> request)
 	{
-		Object codeSystem = data.get(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD);
-		if (data.get(ElasticSearchImp.DEFAULT_NAME_FIELD) != null
-				&& data.get(ElasticSearchImp.DEFAULT_CODE_FIELD) != null && codeSystem != null)
+		if (request.containsKey("data") && request.get("data") != null && request.containsKey("score")
+				&& request.get("score") != null && request.containsKey("query") && request.get("query") != null)
 		{
-			elasticSearchImp.indexDocument(ElasticSearchImp.addDefaultFields(data), codeSystem.toString());
-			Set<String> keySet = new HashSet<String>(rawActivities.keySet());
-			for (String activityName : keySet)
+			Map<String, Object> data = convertData(request.get("data"));
+			float score = Float.parseFloat(request.get("score").toString());
+			String query = request.get("query").toString();
+
+			if (data.containsKey(ElasticSearchImp.DEFAULT_NAME_FIELD)
+					&& data.get(ElasticSearchImp.DEFAULT_NAME_FIELD) != null
+					&& data.containsKey(ElasticSearchImp.DEFAULT_CODE_FIELD)
+					&& data.get(ElasticSearchImp.DEFAULT_CODE_FIELD) != null
+					&& data.containsKey(ElasticSearchImp.DEFAULT_NAME_FIELD)
+					&& data.get(ElasticSearchImp.DEFAULT_NAME_FIELD) != null
+					&& data.containsKey(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD)
+					&& data.get(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD) != null)
 			{
-				List<Hit> searchHits = elasticSearchImp.search(codeSystem.toString(), activityName, null);
-				nGramService.calculateNGramSimilarity(activityName, "name", searchHits);
-				for (Hit hit : searchHits)
+				Object codeSystem = data.get(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD);
+				elasticSearchImp.indexDocument(ElasticSearchImp.addDefaultFields(translateDataToMap(data, query)),
+						codeSystem.toString());
+				Set<String> keySet = new HashSet<String>(rawActivities.keySet());
+				for (String activityName : keySet)
 				{
-					if (hit.getScore().intValue() >= THRESHOLD)
+					List<Hit> searchHits = elasticSearchImp.search(codeSystem.toString(), activityName, null);
+					nGramService.calculateNGramSimilarity(activityName, "name", searchHits);
+					for (Hit hit : searchHits)
 					{
-						// Add/Remove the items to the matched /unmatched
-						// cateogires for which the
-						// matching scores have improved due to the manual
-						// curation
-						if (!mappedActivities.containsKey(activityName))
+						if (hit.getScore().intValue() >= THRESHOLD)
 						{
-							mappedActivities.put(activityName, rawActivities.get(activityName));
-							mappedActivities.get(activityName).setHit(hit);
-							mappedActivities.get(activityName).getIdentifiers()
-									.addAll(rawActivities.get(activityName).getIdentifiers());
-							rawActivities.remove(activityName);
+							// Add/Remove the items to the matched /unmatched
+							// cateogires for which the
+							// matching scores have improved due to the manual
+							// curation
+							if (!mappedActivities.containsKey(activityName))
+							{
+								mappedActivities.put(activityName, rawActivities.get(activityName));
+								mappedActivities.get(activityName).setHit(new Hit(hit.getDocumentId(), null, data));
+								mappedActivities.get(activityName).getHit().setScore(score);
+								mappedActivities.get(activityName).getIdentifiers()
+										.addAll(rawActivities.get(activityName).getIdentifiers());
+								rawActivities.remove(activityName);
+								break;
+							}
 						}
 					}
 				}
 			}
 		}
+	}
+
+	public static Map<String, Object> translateDataToMap(Map<String, Object> data, String query)
+	{
+		Map<String, Object> doc = new HashMap<String, Object>();
+		doc.put(ElasticSearchImp.DEFAULT_NAME_FIELD, query);
+		doc.put(ElasticSearchImp.DEFAULT_CODE_FIELD, data.get(ElasticSearchImp.DEFAULT_CODE_FIELD));
+		doc.put(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD, data.get(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD));
+		return doc;
 	}
 
 	@RequestMapping(value = "/threshold", method = RequestMethod.POST)
@@ -246,8 +272,7 @@ public class ViewRecodeController
 									{
 										if (!mappedActivities.containsKey(activityName))
 										{
-											mappedActivities.put(activityName, new RecodeResponse(activityName, hit,
-													hit.getScore()));
+											mappedActivities.put(activityName, new RecodeResponse(activityName, hit));
 										}
 										mappedActivities.get(activityName).getIdentifiers().add(individualIdentifier);
 									}
@@ -255,8 +280,7 @@ public class ViewRecodeController
 									{
 										if (!rawActivities.containsKey(activityName))
 										{
-											rawActivities.put(activityName,
-													new RecodeResponse(activityName, hit, hit.getScore()));
+											rawActivities.put(activityName, new RecodeResponse(activityName, hit));
 										}
 										rawActivities.get(activityName).getIdentifiers().add(individualIdentifier);
 									}
@@ -299,6 +323,7 @@ public class ViewRecodeController
 			List<String> columnHeaders = new ArrayList<String>();
 			columnHeaders.addAll(ALLOWED_COLUMNS);
 			columnHeaders.add("code");
+			columnHeaders.add("codename");
 			columnHeaders.add("codesystem");
 			columnHeaders.add("similarity");
 			writer = new ExcelWriter(response.getOutputStream());
@@ -314,9 +339,10 @@ public class ViewRecodeController
 					MapEntity entity = new MapEntity();
 					entity.set("name", activityName);
 					entity.set("identifier", identifier);
-					entity.set("code", columnValueMap.get("code"));
-					entity.set("codesystem", columnValueMap.get("codesystem"));
-					entity.set("similarity", recodeResponse.getOriginalSimilarityScore());
+					entity.set("code", columnValueMap.get(ElasticSearchImp.DEFAULT_CODE_FIELD));
+					entity.set("codename", columnValueMap.get(ElasticSearchImp.DEFAULT_NAME_FIELD));
+					entity.set("codesystem", columnValueMap.get(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD));
+					entity.set("similarity", recodeResponse.getHit().getScore());
 					sheet.add(entity);
 				}
 			}
@@ -340,5 +366,19 @@ public class ViewRecodeController
 			count++;
 		}
 		return count == ALLOWED_COLUMNS.size();
+	}
+
+	public static Map<String, Object> convertData(Object data)
+	{
+		Map<String, Object> map = new HashMap<String, Object>();
+
+		if (data instanceof Map<?, ?>)
+		{
+			for (Entry<?, ?> entry : ((Map<?, ?>) data).entrySet())
+			{
+				map.put(entry.getKey().toString(), entry.getValue());
+			}
+		}
+		return map;
 	}
 }

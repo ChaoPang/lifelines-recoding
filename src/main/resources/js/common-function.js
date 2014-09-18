@@ -86,9 +86,13 @@
 	
 	molgenis.defaultAddCode = function(query, hit, callback){
 		var request = {
-			'name' : query,
-			'code' : hit.columnValueMap.code,
-			'codesystem' : hit.columnValueMap.codesystem
+			'data' : {
+				'code' : hit.columnValueMap.code,
+				'name' : hit.columnValueMap.name,
+				'codesystem' : hit.columnValueMap.codesystem,
+			},
+			'query' : query,
+			'score' : hit.score
 		};
 		$.ajax({
 			type : 'POST',

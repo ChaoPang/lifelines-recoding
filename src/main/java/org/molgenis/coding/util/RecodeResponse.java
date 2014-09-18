@@ -9,16 +9,16 @@ public class RecodeResponse
 {
 	private final String queryString;
 	private final Set<String> identifiers;
-	private final Float originalSimilarityScore;
+	// private final Float originalSimilarityScore;
 	private Hit hit;
 	private boolean isCustomSearched = false;
 
-	public RecodeResponse(String queryString, Hit hit, Float originalSimilarityScore)
+	public RecodeResponse(String queryString, Hit hit)
 	{
 		this.queryString = queryString;
 		this.hit = hit;
 		this.identifiers = new HashSet<String>();
-		this.originalSimilarityScore = originalSimilarityScore;
+		// this.originalSimilarityScore = originalSimilarityScore;
 	}
 
 	public String getQueryString()
@@ -46,10 +46,11 @@ public class RecodeResponse
 		this.isCustomSearched = isCustomSearched;
 	}
 
-	public double getOriginalSimilarityScore()
-	{
-		return originalSimilarityScore;
-	}
+	//
+	// public int getOriginalSimilarityScore()
+	// {
+	// return originalSimilarityScore.intValue();
+	// }
 
 	public void setHit(Hit hit)
 	{

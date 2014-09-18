@@ -73,33 +73,43 @@ public class FindCodesController
 	@RequestMapping(value = "/add", method = RequestMethod.POST, consumes = APPLICATION_JSON_VALUE, produces = APPLICATION_JSON_VALUE)
 	@ResponseBody
 	public Map<String, Object> addDoc(@RequestBody
-	Map<String, Object> data) throws IOException, ParseException
+	Map<String, Object> request) throws IOException, ParseException
 	{
 		Map<String, Object> results = new HashMap<String, Object>();
-		results.put("data", data);
-		for (String validField : Arrays.asList("name", "code", "codesystem"))
+
+		if (request.containsKey("data") && request.get("data") != null && request.containsKey("query")
+				&& request.get("query") != null)
 		{
-			if (!data.containsKey(validField))
+			Map<String, Object> data = ViewRecodeController.convertData(request.get("data"));
+			String query = request.get("query").toString();
+			results.put("data", data);
+			for (String validField : Arrays.asList("name", "code", "codesystem"))
+			{
+				if (!data.containsKey(validField))
+				{
+					results.put("success", false);
+					results.put("message", "data request does not contain valid field " + validField);
+					return results;
+				}
+			}
+			String documentType = data.containsKey(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD)
+					&& data.get(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD) != null ? data.get(
+					ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD).toString() : null;
+
+			if (documentType == null)
 			{
 				results.put("success", false);
-				results.put("message", "data request does not contain valid field " + validField);
+				results.put("message", "code system is invalid");
 				return results;
 			}
-		}
-		String documentType = data.containsKey(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD)
-				&& data.get(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD) != null ? data.get(
-				ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD).toString() : null;
 
-		if (documentType == null)
-		{
-			results.put("success", false);
-			results.put("message", "code system is invalid");
-			return results;
+			elasticSearchImp.indexDocument(
+					ElasticSearchImp.addDefaultFields(ViewRecodeController.translateDataToMap(data, query)),
+					documentType);
+			results.put("success", true);
+			results.put("message", "new term " + data.get("name") + " has been added to the code " + data.get("code"));
 		}
 
-		elasticSearchImp.indexDocument(ElasticSearchImp.addDefaultFields(data), documentType);
-		results.put("success", true);
-		results.put("message", "new term " + data.get("name") + " has been added to the code " + data.get("code"));
 		return results;
 	}
 
