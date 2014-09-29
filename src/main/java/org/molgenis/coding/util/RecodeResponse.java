@@ -1,6 +1,7 @@
 package org.molgenis.coding.util;
 
-import java.util.HashSet;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 
 import org.molgenis.coding.elasticsearch.Hit;
@@ -8,8 +9,7 @@ import org.molgenis.coding.elasticsearch.Hit;
 public class RecodeResponse
 {
 	private final String queryString;
-	private final Set<String> identifiers;
-	// private final Float originalSimilarityScore;
+	private final Map<String, Set<Integer>> identifiers;
 	private Hit hit;
 	private boolean isCustomSearched = false;
 
@@ -17,8 +17,7 @@ public class RecodeResponse
 	{
 		this.queryString = queryString;
 		this.hit = hit;
-		this.identifiers = new HashSet<String>();
-		// this.originalSimilarityScore = originalSimilarityScore;
+		this.identifiers = new HashMap<String, Set<Integer>>();
 	}
 
 	public String getQueryString()
@@ -26,7 +25,7 @@ public class RecodeResponse
 		return queryString;
 	}
 
-	public Set<String> getIdentifiers()
+	public Map<String, Set<Integer>> getIdentifiers()
 	{
 		return identifiers;
 	}
@@ -45,12 +44,6 @@ public class RecodeResponse
 	{
 		this.isCustomSearched = isCustomSearched;
 	}
-
-	//
-	// public int getOriginalSimilarityScore()
-	// {
-	// return originalSimilarityScore.intValue();
-	// }
 
 	public void setHit(Hit hit)
 	{

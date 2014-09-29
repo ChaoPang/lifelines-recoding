@@ -64,6 +64,8 @@ public class ViewRecodeController
 	private final static Logger logger = Logger.getLogger(ViewRecodeController.class);
 	private final Map<String, RecodeResponse> mappedActivities = new HashMap<String, RecodeResponse>();
 	private final Map<String, RecodeResponse> rawActivities = new HashMap<String, RecodeResponse>();
+	private final List<String> maxNumColumns = new ArrayList<String>();
+	private final Set<String> invalidIndividuals = new HashSet<String>();
 
 	@Autowired
 	public ViewRecodeController(SearchService elasticSearchImp, NGramService nGramService)
@@ -92,6 +94,8 @@ public class ViewRecodeController
 			isRecoding = false;
 			mappedActivities.clear();
 			rawActivities.clear();
+			maxNumColumns.clear();
+			invalidIndividuals.clear();
 		}
 		return "redirect:/recode";
 	}
@@ -149,7 +153,7 @@ public class ViewRecodeController
 								mappedActivities.get(activityName).setHit(new Hit(hit.getDocumentId(), null, data));
 								mappedActivities.get(activityName).getHit().setScore(score);
 								mappedActivities.get(activityName).getIdentifiers()
-										.addAll(rawActivities.get(activityName).getIdentifiers());
+										.putAll(rawActivities.get(activityName).getIdentifiers());
 								rawActivities.remove(activityName);
 								break;
 							}
@@ -252,46 +256,74 @@ public class ViewRecodeController
 					{
 						// Map to store the activity name with corresponding
 						// individuals
-						int count = 2;
 						Iterator<Entity> iterator = sheet.iterator();
-						// Collect individual row numbers for later report
-						Set<Integer> invalidIndividuals = new HashSet<Integer>();
+
+						for (AttributeMetaData attributeMetaData : sheet.getEntityMetaData().getAtomicAttributes())
+						{
+							maxNumColumns.add(attributeMetaData.getName());
+						}
 
 						while (iterator.hasNext())
 						{
 							Entity entity = iterator.next();
 							String individualIdentifier = entity.getString("identifier");
-							String activityName = entity.getString("name");
-							if (individualIdentifier != null && activityName != null)
+							invalidIndividuals.add(individualIdentifier);
+							for (String columnName : maxNumColumns)
 							{
-								List<Hit> searchHits = elasticSearchImp.search(codeSystem, activityName, null);
-								nGramService.calculateNGramSimilarity(activityName, "name", searchHits);
-								for (Hit hit : searchHits)
+								if (columnName.equalsIgnoreCase("identifier")) continue;
+
+								if (columnName.startsWith("name"))
 								{
-									if (hit.getScore().intValue() >= THRESHOLD)
+									String activityName = entity.getString(columnName);
+									Integer columnIndex = maxNumColumns.indexOf(columnName);
+
+									if (!StringUtils.isEmpty(individualIdentifier)
+											&& !StringUtils.isEmpty(activityName))
 									{
-										if (!mappedActivities.containsKey(activityName))
+										if (invalidIndividuals.contains(individualIdentifier)) invalidIndividuals
+												.remove(individualIdentifier);
+
+										List<Hit> searchHits = elasticSearchImp.search(codeSystem, activityName, null);
+										nGramService.calculateNGramSimilarity(activityName, "name", searchHits);
+										for (Hit hit : searchHits)
 										{
-											mappedActivities.put(activityName, new RecodeResponse(activityName, hit));
+											if (hit.getScore().intValue() >= THRESHOLD)
+											{
+												if (!mappedActivities.containsKey(activityName))
+												{
+													mappedActivities.put(activityName, new RecodeResponse(activityName,
+															hit));
+												}
+												if (!mappedActivities.get(activityName).getIdentifiers()
+														.containsKey(individualIdentifier))
+												{
+													mappedActivities.get(activityName).getIdentifiers()
+															.put(individualIdentifier, new HashSet<Integer>());
+												}
+												mappedActivities.get(activityName).getIdentifiers()
+														.get(individualIdentifier).add(columnIndex);
+											}
+											else
+											{
+												if (!rawActivities.containsKey(activityName))
+												{
+													rawActivities.put(activityName, new RecodeResponse(activityName,
+															hit));
+												}
+												if (!rawActivities.get(activityName).getIdentifiers()
+														.containsKey(individualIdentifier))
+												{
+													rawActivities.get(activityName).getIdentifiers()
+															.put(individualIdentifier, new HashSet<Integer>());
+												}
+												rawActivities.get(activityName).getIdentifiers()
+														.get(individualIdentifier).add(columnIndex);
+											}
+											break;
 										}
-										mappedActivities.get(activityName).getIdentifiers().add(individualIdentifier);
 									}
-									else
-									{
-										if (!rawActivities.containsKey(activityName))
-										{
-											rawActivities.put(activityName, new RecodeResponse(activityName, hit));
-										}
-										rawActivities.get(activityName).getIdentifiers().add(individualIdentifier);
-									}
-									break;
 								}
 							}
-							else
-							{
-								invalidIndividuals.add(count);
-							}
-							count++;
 						}
 						isRecoding = true;
 					}
@@ -327,26 +359,57 @@ public class ViewRecodeController
 			columnHeaders.add("codesystem");
 			columnHeaders.add("similarity");
 			writer = new ExcelWriter(response.getOutputStream());
-			ExcelSheetWriter sheet = writer.createWritable("recoding", columnHeaders);
+			Map<Integer, ExcelSheetWriter> sheetMap = new HashMap<Integer, ExcelSheetWriter>();
+			ExcelSheetWriter summarySheet = writer.createWritable("recoding", maxNumColumns);
+			for (int index = 1; index < maxNumColumns.size(); index++)
+			{
+				sheetMap.put(index, writer.createWritable("recoding-" + index, columnHeaders));
+			}
+			Map<String, MapEntity> entityMap = new HashMap<String, MapEntity>();
 			for (Entry<String, RecodeResponse> entry : mappedActivities.entrySet())
 			{
 				String activityName = entry.getKey();
 				RecodeResponse recodeResponse = entry.getValue();
 				Map<String, Object> columnValueMap = recodeResponse.getHit().getColumnValueMap();
 
-				for (String identifier : recodeResponse.getIdentifiers())
+				for (Entry<String, Set<Integer>> identifiers : recodeResponse.getIdentifiers().entrySet())
 				{
-					MapEntity entity = new MapEntity();
-					entity.set("name", activityName);
-					entity.set("identifier", identifier);
-					entity.set("code", columnValueMap.get(ElasticSearchImp.DEFAULT_CODE_FIELD));
-					entity.set("codename", columnValueMap.get(ElasticSearchImp.DEFAULT_NAME_FIELD));
-					entity.set("codesystem", columnValueMap.get(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD));
-					entity.set("similarity", recodeResponse.getHit().getScore());
-					sheet.add(entity);
+					String identifier = identifiers.getKey();
+
+					if (!entityMap.containsKey(identifier))
+					{
+						entityMap.put(identifier, new MapEntity());
+						entityMap.get(identifier).set("identifier", identifier);
+					}
+
+					for (Integer columnIndex : identifiers.getValue())
+					{
+						MapEntity entity = new MapEntity();
+						entity.set("name", activityName);
+						entity.set("identifier", identifier);
+						entity.set("code", columnValueMap.get(ElasticSearchImp.DEFAULT_CODE_FIELD));
+						entity.set("codename", columnValueMap.get(ElasticSearchImp.DEFAULT_NAME_FIELD));
+						entity.set("codesystem", columnValueMap.get(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD));
+						entity.set("similarity", recodeResponse.getHit().getScore());
+						sheetMap.get(columnIndex).add(entity);
+
+						entityMap.get(identifier).set(maxNumColumns.get(columnIndex),
+								columnValueMap.get(ElasticSearchImp.DEFAULT_CODE_FIELD));
+					}
 				}
 			}
-			sheet.close();
+
+			summarySheet.add(entityMap.values());
+			for (String identifier : invalidIndividuals)
+			{
+				MapEntity entity = new MapEntity();
+				entity.set("identifier", identifier);
+				summarySheet.add(entity);
+			}
+			summarySheet.close();
+
+			for (ExcelSheetWriter sheet : sheetMap.values())
+				sheet.close();
 		}
 		finally
 		{
@@ -356,16 +419,15 @@ public class ViewRecodeController
 
 	private boolean validateExcelColumnHeaders(ExcelRepository sheet)
 	{
-		int count = 0;
 		for (AttributeMetaData attribute : sheet.getEntityMetaData().getAttributes())
 		{
-			if (!ALLOWED_COLUMNS.contains(attribute.getName().toLowerCase()))
+			if (!attribute.getName().toLowerCase().equals("identifier")
+					&& !attribute.getName().toLowerCase().startsWith("name"))
 			{
 				return false;
 			}
-			count++;
 		}
-		return count == ALLOWED_COLUMNS.size();
+		return true;
 	}
 
 	public static Map<String, Object> convertData(Object data)

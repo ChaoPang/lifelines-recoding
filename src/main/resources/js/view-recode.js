@@ -16,7 +16,7 @@
 			});
 			var totalNumber = 0;
 			$.each(matchingResults, function(index, recodeResponse){
-				totalNumber += recodeResponse.identifiers.length;
+				totalNumber += Object.keys(recodeResponse.identifiers).length;
 			});
 			
 			var showResultButton = $('<button class="btn ' + (matched ? 'btn-primary' : 'btn-info') + '" type="button" style=float:right;>Show result</button>');
@@ -29,7 +29,7 @@
 					$('<tr />').append('<th>Input</th><th>Individuals</th>' + (matched ? '<th>Matched code</th><th>Code system</th><th>Score</th>' : '<th style="text-align:center;">Curation</th>')).appendTo(table);
 					$.each(matchingResults, function(index, recodeResponse){
 						var row = $('<tr />').append('<td>' + recodeResponse.queryString + '</td>').
-							append('<td>' + recodeResponse.identifiers.length + '</td>');
+							append('<td>' + Object.keys(recodeResponse.identifiers).length + '</td>');
 						if(matched){
 							row.append('<td>' + recodeResponse.hit.columnValueMap.code + ' : ' + recodeResponse.hit.columnValueMap.name + '</td>').
 								append('<td>' + recodeResponse.hit.columnValueMap.codesystem + '</td>').append('<td>' + recodeResponse.hit.score + '%</td>');
