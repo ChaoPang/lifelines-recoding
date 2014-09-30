@@ -26,13 +26,22 @@
 			if(totalNumber > 0){
 				showResultButton.click(function(){
 					var table = $('<table />').addClass('table table-bordered');
-					$('<tr />').append('<th>Input</th><th>Individuals</th>' + (matched ? '<th>Matched code</th><th>Code system</th><th>Score</th>' : '<th style="text-align:center;">Curation</th>')).appendTo(table);
+					$('<tr />').append('<th>Input</th><th>Individuals</th>' + (matched ? '<th>Matched code</th><th>Code system</th><th>Score</th><th>Delete</th>' : '<th style="text-align:center;">Curation</th>')).appendTo(table);
 					$.each(matchingResults, function(index, recodeResponse){
 						var row = $('<tr />').append('<td>' + recodeResponse.queryString + '</td>').
 							append('<td>' + Object.keys(recodeResponse.identifiers).length + '</td>');
 						if(matched){
+							var deleteButton = $('<span><i class="icon icon-trash"></i></span>').css('cursor', 'pointer');
 							row.append('<td>' + recodeResponse.hit.columnValueMap.code + ' : ' + recodeResponse.hit.columnValueMap.name + '</td>').
 								append('<td>' + recodeResponse.hit.columnValueMap.codesystem + '</td>').append('<td>' + recodeResponse.hit.score + '%</td>');
+							$('<td />').append(deleteButton).appendTo(row);
+							deleteButton.click(function(){
+								removeCodedResult(recodeResponse.queryString);
+								setTimeout(function(){
+									location.reload();
+								},1500);
+							});
+							
 						}else{
 							var iconButton = $('<button class="btn" type="button"><i class="icon-pencil"></i></button>');
 							$('<td />').css('text-align', 'center').append(iconButton).appendTo(row);
@@ -87,6 +96,18 @@
 					resultContainer.empty().append(layoutDiv);
 				});	
 			}
+		}
+		
+		function removeCodedResult(query){
+			var request = {
+				'query' : query
+			};
+			$.ajax({
+				type : 'POST',
+				url :  '/recode/remove',
+				data : JSON.stringify(request),
+				contentType : 'application/json'
+			});
 		}
 		
 		function addCodeFunction(query, hit, toAdd){

@@ -242,6 +242,28 @@ public class ViewRecodeController
 		}
 	}
 
+	@RequestMapping(value = "/remove", method = RequestMethod.POST, consumes = APPLICATION_JSON_VALUE)
+	@ResponseStatus(OK)
+	public void removeCodedResult(@RequestBody
+	Map<String, Object> request)
+	{
+		if (request.containsKey("query") && request.get("query") != null)
+		{
+			String queryString = request.get("query").toString();
+			// Only code the this query
+			if (mappedActivities.containsKey(queryString))
+			{
+				rawActivities.put(queryString, mappedActivities.get(queryString));
+				List<Hit> searchHits = elasticSearchImp.search(selectedCodeSystem, queryString, null);
+				nGramService.calculateNGramSimilarity(queryString, "name", searchHits);
+				if (searchHits.size() > 0) mappedActivities.get(queryString).setHit(searchHits.get(0));
+				else mappedActivities.get(queryString).setHit(null);
+
+				mappedActivities.remove(queryString);
+			}
+		}
+	}
+
 	public static Map<String, Object> translateDataToMap(Map<String, Object> data, String query)
 	{
 		Map<String, Object> doc = new HashMap<String, Object>();
