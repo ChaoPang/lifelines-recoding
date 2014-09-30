@@ -44,7 +44,8 @@
 										'queryString' : recodeResponse.queryString,
 										'hits' : data.results,
 										'parentElement' : resultContainer,
-										'addCode' : addCodeFunction
+										'addCode' : addCodeFunction,
+										'unknownCode' : unknownCode
 									}
 									var inputTextQuery = $('<input type="text" placeholder="custom search"/>');
 									var matchButton = $('<button class="btn" type="button"><i class="icon-search"></i></button>');
@@ -65,7 +66,8 @@
 													'queryString' : default_options.queryString,
 													'hits' : data.results,
 													'parentElement' : resultContainer,
-													'addCode' : addCodeFunction
+													'addCode' : addCodeFunction,
+													'unknownCode' : unknownCode
 												};
 												molgenis.createTable(options);
 											});
@@ -103,6 +105,17 @@
 				type : 'POST',
 				url :  '/recode/add',
 				data : JSON.stringify(request),
+				contentType : 'application/json'
+			});
+		}
+		
+		
+
+		function unknownCode(data){
+			$.ajax({
+				type : 'POST',
+				url :  '/recode/unknown',
+				data : JSON.stringify(data),
 				contentType : 'application/json'
 			});
 		}

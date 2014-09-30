@@ -61,6 +61,8 @@ public class ViewRecodeController
 	private Integer THRESHOLD = 80;
 	private String selectedCodeSystem = null;
 	private final static String VIEW_NAME = "view-recode-report";
+	private final static String UNKNOWN_CODE = "99999";
+	private final static String UNKNOWN_CODE_NAME = "Unknown";
 	private final SearchService elasticSearchImp;
 	private final NGramService nGramService;
 	private final static List<String> ALLOWED_COLUMNS = Arrays.asList("identifier", "name");
@@ -205,25 +207,37 @@ public class ViewRecodeController
 		}
 	}
 
-	@RequestMapping(value = "/code", method = RequestMethod.POST, consumes = APPLICATION_JSON_VALUE)
+	@RequestMapping(value = "/unknown", method = RequestMethod.POST, consumes = APPLICATION_JSON_VALUE)
 	@ResponseStatus(OK)
-	public void codeDoc(@RequestBody
+	public void unkonwnCode(@RequestBody
 	Map<String, Object> request)
 	{
-		if (request.containsKey("data") && request.get("data") != null && request.containsKey("score")
-				&& request.get("score") != null && request.containsKey("query") && request.get("query") != null)
+		if (request.containsKey("codesystem") && request.get("codesystem") != null && request.containsKey("query")
+				&& request.get("query") != null)
 		{
-			Map<String, Object> data = convertData(request.get("data"));
-			if (data.containsKey(ElasticSearchImp.DEFAULT_NAME_FIELD)
-					&& data.get(ElasticSearchImp.DEFAULT_NAME_FIELD) != null
-					&& data.containsKey(ElasticSearchImp.DEFAULT_CODE_FIELD)
-					&& data.get(ElasticSearchImp.DEFAULT_CODE_FIELD) != null
-					&& data.containsKey(ElasticSearchImp.DEFAULT_NAME_FIELD)
-					&& data.get(ElasticSearchImp.DEFAULT_NAME_FIELD) != null
-					&& data.containsKey(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD)
-					&& data.get(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD) != null)
+			String documentType = request.get(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD).toString();
+			String queryString = request.get("query").toString();
+			List<Hit> hits = elasticSearchImp.search(documentType, UNKNOWN_CODE, ElasticSearchImp.DEFAULT_CODE_FIELD);
+			if (hits.size() == 0)
 			{
+				Map<String, Object> doc = new HashMap<String, Object>();
+				doc.put(ElasticSearchImp.DEFAULT_CODE_FIELD, UNKNOWN_CODE);
+				doc.put(ElasticSearchImp.DEFAULT_NAME_FIELD, UNKNOWN_CODE_NAME);
+				doc.put(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD, documentType);
+				elasticSearchImp.indexDocument(ElasticSearchImp.addDefaultFields(doc), documentType);
+				hits = elasticSearchImp.search(documentType, UNKNOWN_CODE, ElasticSearchImp.DEFAULT_CODE_FIELD);
+			}
 
+			// Only code the this query
+			if (!mappedActivities.containsKey(queryString) && rawActivities.containsKey(queryString))
+			{
+				mappedActivities.put(queryString, rawActivities.get(queryString));
+				mappedActivities.get(queryString).setHit(
+						new Hit(hits.get(0).getDocumentId(), null, hits.get(0).getColumnValueMap()));
+				mappedActivities.get(queryString).getHit().setScore((float) 0);
+				mappedActivities.get(queryString).getIdentifiers()
+						.putAll(rawActivities.get(queryString).getIdentifiers());
+				rawActivities.remove(queryString);
 			}
 		}
 	}

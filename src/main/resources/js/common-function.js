@@ -6,7 +6,7 @@
 		var hits = options.hits;
 		var parentElement = options.parentElement;
 		var addCodeFunction = (options.addCode && typeof options.addCode === 'function' ? options.addCode : molgenis.defaultAddCode);
-		var codeFunction = (options.addCode && typeof options.addCode === 'function' ? options.addCode : molgenis.defaultAddCode);
+		var unknownCode = (options.unknownCode && typeof options.unknownCode === 'function' ? options.unknownCode : null);
 		
 		if(hits.length > 0){
 			var table = $('<table />').addClass('table table-bordered');
@@ -62,19 +62,17 @@
 			});
 			
 			selectUnknowButton.click(function(){
-				var hit = {
-					'columnValueMap' : {
-						'code' : '99999',
-						'name' : 'Unknown',
+				if(unknownCode){
+					unknownCode({
 						'codesystem' : hits[0].columnValueMap.codesystem,
-					},
-					'query' : queryString,
-					'score' : '0'
-				};
-				addCodeFunction(queryString, hit, true);
-				setTimeout(function(){
-					location.reload();
-				},1500);
+						'query' : queryString
+					});
+					setTimeout(function(){
+						location.reload();
+					},1500);
+				}else{
+					console.log("The function is not defined!");
+				}
 			});
 			
 		}else{
