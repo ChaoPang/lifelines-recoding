@@ -287,7 +287,15 @@ public class ElasticSearchImp implements SearchService
 
 	public static String escapeValue(String value)
 	{
-		return value.replaceAll("[\\W]", " ");
+		StringBuilder stringBuilder = new StringBuilder();
+		for (String eachWord : value.replaceAll("[\\W]", " ").split("\\s+"))
+		{
+			if (!eachWord.equalsIgnoreCase("AND") && !eachWord.equalsIgnoreCase("OR"))
+			{
+				stringBuilder.append(eachWord);
+			}
+		}
+		return stringBuilder.toString();
 	}
 
 	public static Map<String, Object> addDefaultFields(Map<String, Object> data)
