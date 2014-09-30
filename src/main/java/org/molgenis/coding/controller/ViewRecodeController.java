@@ -5,6 +5,7 @@ import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
 import java.io.BufferedOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
@@ -18,6 +19,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import javax.servlet.http.HttpServletResponse;
 
@@ -32,10 +35,10 @@ import org.molgenis.coding.ngram.NGramService;
 import org.molgenis.coding.util.RecodeResponse;
 import org.molgenis.data.AttributeMetaData;
 import org.molgenis.data.Entity;
-import org.molgenis.data.excel.ExcelRepository;
-import org.molgenis.data.excel.ExcelRepositoryCollection;
-import org.molgenis.data.excel.ExcelSheetWriter;
-import org.molgenis.data.excel.ExcelWriter;
+import org.molgenis.data.EntityMetaData;
+import org.molgenis.data.csv.CsvRepository;
+import org.molgenis.data.csv.CsvWriter;
+import org.molgenis.data.processor.CellProcessor;
 import org.molgenis.data.processor.LowerCaseProcessor;
 import org.molgenis.data.processor.TrimProcessor;
 import org.molgenis.data.support.MapEntity;
@@ -228,37 +231,37 @@ public class ViewRecodeController
 	@RequestMapping(value = "/upload", method = RequestMethod.POST, headers = "Content-Type=multipart/form-data")
 	public String uploadFileHandler(@RequestParam("file")
 	MultipartFile file, @RequestParam(value = "selectedCodeSystem", required = false)
-	String codeSystem, Model model) throws InvalidFormatException
+	String codeSystem, Model model) throws InvalidFormatException, IOException
 	{
 		if (!file.isEmpty() && !StringUtils.isEmpty(codeSystem))
 		{
-			byte[] bytes;
+			CsvRepository csvRepository = null;
 			try
 			{
 				selectedCodeSystem = codeSystem;
 
-				bytes = file.getBytes();
-				String rootPath = System.getProperty("java.io.tmpdir");
-				File dir = new File(rootPath + File.separator + "tmpFiles");
-				if (!dir.exists()) dir.mkdirs();
-				// Create the file on server
-				File serverFile = new File(dir.getAbsolutePath() + File.separator + file.getName() + ".xls");
-				BufferedOutputStream stream = new BufferedOutputStream(new FileOutputStream(serverFile));
-				stream.write(bytes);
-				stream.close();
-				logger.info("The uploaded file path is : " + serverFile.getAbsolutePath());
-				ExcelRepositoryCollection collection = new ExcelRepositoryCollection(new File(
-						serverFile.getAbsolutePath()), new LowerCaseProcessor(), new TrimProcessor());
-				ExcelRepository sheet = collection.getSheet(0);
-				if (collection.getNumberOfSheets() > 0)
+				File serverFile = createFileOnServer(file);
+
+				// ExcelRepositoryCollection collection = new
+				// ExcelRepositoryCollection(new File(
+				// serverFile.getAbsolutePath()), new LowerCaseProcessor(), new
+				// TrimProcessor());
+				// ExcelRepository sheet = collection.getSheet(0);
+				if (serverFile.exists())
 				{
-					if (validateExcelColumnHeaders(sheet))
+					List<CellProcessor> cellProcessors = new ArrayList<CellProcessor>();
+					cellProcessors.add(new LowerCaseProcessor());
+					cellProcessors.add(new TrimProcessor());
+					csvRepository = new CsvRepository(new File(serverFile.getAbsolutePath()), cellProcessors, ';');
+
+					if (validateExcelColumnHeaders(csvRepository.getEntityMetaData()))
 					{
 						// Map to store the activity name with corresponding
 						// individuals
-						Iterator<Entity> iterator = sheet.iterator();
+						Iterator<Entity> iterator = csvRepository.iterator();
 
-						for (AttributeMetaData attributeMetaData : sheet.getEntityMetaData().getAtomicAttributes())
+						for (AttributeMetaData attributeMetaData : csvRepository.getEntityMetaData()
+								.getAtomicAttributes())
 						{
 							maxNumColumns.add(attributeMetaData.getName());
 						}
@@ -266,13 +269,13 @@ public class ViewRecodeController
 						while (iterator.hasNext())
 						{
 							Entity entity = iterator.next();
-							String individualIdentifier = entity.getString("identifier");
+							String individualIdentifier = entity.getString("Identifier");
 							invalidIndividuals.add(individualIdentifier);
 							for (String columnName : maxNumColumns)
 							{
 								if (columnName.equalsIgnoreCase("identifier")) continue;
 
-								if (columnName.startsWith("name"))
+								if (columnName.toLowerCase().startsWith("name"))
 								{
 									String activityName = entity.getString(columnName);
 									Integer columnIndex = maxNumColumns.indexOf(columnName);
@@ -325,6 +328,7 @@ public class ViewRecodeController
 								}
 							}
 						}
+
 						isRecoding = true;
 					}
 					else
@@ -333,9 +337,14 @@ public class ViewRecodeController
 					}
 				}
 			}
-			catch (IOException e)
+			catch (Throwable e)
 			{
+				if (csvRepository != null) csvRepository.close();
 				model.addAttribute("message", e.getMessage());
+				rawActivities.clear();
+				mappedActivities.clear();
+				maxNumColumns.clear();
+				invalidIndividuals.clear();
 			}
 		}
 		return "redirect:/recode";
@@ -344,12 +353,15 @@ public class ViewRecodeController
 	@RequestMapping(value = "/download", method = RequestMethod.GET)
 	public void download(HttpServletResponse response) throws IOException
 	{
-		response.setContentType("application/vnd.ms-excel");
+		response.setContentType("application/zip");
 		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
 		response.addHeader("Content-Disposition",
-				"attachment; filename=recoding-download-" + dateFormat.format(new Date()) + ".xls");
+				"attachment; filename=recoding-download-" + dateFormat.format(new Date()) + ".zip");
 
-		ExcelWriter writer = null;
+		String property = System.getProperty("java.io.tmpdir");
+		List<String> filePaths = new ArrayList<String>();
+		ZipOutputStream zipOutputStream = null;
+
 		try
 		{
 			List<String> columnHeaders = new ArrayList<String>();
@@ -358,12 +370,23 @@ public class ViewRecodeController
 			columnHeaders.add("codename");
 			columnHeaders.add("codesystem");
 			columnHeaders.add("similarity");
-			writer = new ExcelWriter(response.getOutputStream());
-			Map<Integer, ExcelSheetWriter> sheetMap = new HashMap<Integer, ExcelSheetWriter>();
-			ExcelSheetWriter summarySheet = writer.createWritable("recoding", maxNumColumns);
+
+			File fileForSummaryTable = new File(property + "recoding-download-" + dateFormat.format(new Date())
+					+ ".0.csv");
+			CsvWriter summaryCsvWritier = new CsvWriter(fileForSummaryTable);
+			filePaths.add(fileForSummaryTable.getAbsolutePath());
+
+			summaryCsvWritier.writeAttributeNames(maxNumColumns);
+
+			Map<Integer, CsvWriter> sheetMap = new HashMap<Integer, CsvWriter>();
+
 			for (int index = 1; index < maxNumColumns.size(); index++)
 			{
-				sheetMap.put(index, writer.createWritable("recoding-" + index, columnHeaders));
+				File file = new File(property + "recoding-download-" + dateFormat.format(new Date()) + "." + index
+						+ ".csv");
+				filePaths.add(file.getAbsolutePath());
+				sheetMap.put(index, new CsvWriter(file));
+				sheetMap.get(index).writeAttributeNames(columnHeaders);
 			}
 			Map<String, MapEntity> entityMap = new HashMap<String, MapEntity>();
 			for (Entry<String, RecodeResponse> entry : mappedActivities.entrySet())
@@ -399,27 +422,72 @@ public class ViewRecodeController
 				}
 			}
 
-			summarySheet.add(entityMap.values());
+			summaryCsvWritier.add(entityMap.values());
 			for (String identifier : invalidIndividuals)
 			{
 				MapEntity entity = new MapEntity();
 				entity.set("identifier", identifier);
-				summarySheet.add(entity);
+				summaryCsvWritier.add(entity);
 			}
-			summarySheet.close();
+			summaryCsvWritier.close();
 
-			for (ExcelSheetWriter sheet : sheetMap.values())
+			for (CsvWriter sheet : sheetMap.values())
 				sheet.close();
+
+			zipOutputStream = new ZipOutputStream(response.getOutputStream());
+			zipFile(zipOutputStream, filePaths);
+
 		}
 		finally
 		{
-			IOUtils.closeQuietly(writer);
+			IOUtils.closeQuietly(zipOutputStream);
 		}
 	}
 
-	private boolean validateExcelColumnHeaders(ExcelRepository sheet)
+	private void zipFile(ZipOutputStream zipOutputStream, List<String> filePaths) throws IOException
 	{
-		for (AttributeMetaData attribute : sheet.getEntityMetaData().getAttributes())
+
+		byte[] buffer = new byte[128];
+		for (String filePath : filePaths)
+		{
+			File file = new File(filePath);
+			if (file.exists())
+			{
+				ZipEntry zipEntry = new ZipEntry(file.getName());
+				FileInputStream fis = new FileInputStream(file);
+				zipOutputStream.putNextEntry(zipEntry);
+
+				int read = 0;
+				while ((read = fis.read(buffer)) != -1)
+				{
+					zipOutputStream.write(buffer, 0, read);
+				}
+
+				zipOutputStream.closeEntry();
+				fis.close();
+			}
+		}
+	}
+
+	private File createFileOnServer(MultipartFile file) throws IOException
+	{
+		String rootPath = System.getProperty("java.io.tmpdir");
+		File dir = new File(rootPath + File.separator + "tmpFiles");
+		if (!dir.exists()) dir.mkdirs();
+		// Create the file on server
+		File serverFile = new File(dir.getAbsolutePath() + File.separator + file.getName() + ".csv");
+
+		BufferedOutputStream stream = new BufferedOutputStream(new FileOutputStream(serverFile));
+		stream.write(file.getBytes());
+		stream.close();
+		logger.info("The uploaded file path is : " + serverFile.getAbsolutePath());
+		return serverFile;
+
+	}
+
+	private boolean validateExcelColumnHeaders(EntityMetaData entityMetaData)
+	{
+		for (AttributeMetaData attribute : entityMetaData.getAttributes())
 		{
 			if (!attribute.getName().toLowerCase().equals("identifier")
 					&& !attribute.getName().toLowerCase().startsWith("name"))
