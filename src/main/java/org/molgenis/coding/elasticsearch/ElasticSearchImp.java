@@ -292,10 +292,10 @@ public class ElasticSearchImp implements SearchService
 		{
 			if (!eachWord.equalsIgnoreCase("AND") && !eachWord.equalsIgnoreCase("OR"))
 			{
-				stringBuilder.append(eachWord);
+				stringBuilder.append(eachWord).append(' ');
 			}
 		}
-		return stringBuilder.toString();
+		return stringBuilder.toString().trim();
 	}
 
 	public static Map<String, Object> addDefaultFields(Map<String, Object> data)
