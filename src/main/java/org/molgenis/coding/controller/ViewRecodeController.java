@@ -203,6 +203,7 @@ public class ViewRecodeController
 						rawActivities.remove(queryString);
 					}
 				}
+				mappedActivities.get(queryString).setFinalSelection(true);
 			}
 		}
 	}
@@ -228,7 +229,7 @@ public class ViewRecodeController
 				hits = elasticSearchImp.search(documentType, UNKNOWN_CODE, ElasticSearchImp.DEFAULT_CODE_FIELD);
 			}
 
-			// Only code the this query
+			// Only code this query
 			if (!mappedActivities.containsKey(queryString) && rawActivities.containsKey(queryString))
 			{
 				mappedActivities.put(queryString, rawActivities.get(queryString));
@@ -237,6 +238,7 @@ public class ViewRecodeController
 				mappedActivities.get(queryString).getHit().setScore((float) 0);
 				mappedActivities.get(queryString).getIdentifiers()
 						.putAll(rawActivities.get(queryString).getIdentifiers());
+				mappedActivities.get(queryString).setFinalSelection(true);
 				rawActivities.remove(queryString);
 			}
 		}
@@ -313,7 +315,8 @@ public class ViewRecodeController
 				RecodeResponse recodeResponse = mappedActivities.get(activityName);
 				if (recodeResponse.getHit().getScore() < THRESHOLD)
 				{
-					if (!rawActivities.containsKey(activityName))
+					if (!rawActivities.containsKey(activityName)
+							&& !mappedActivities.get(activityName).isFinalSelection())
 					{
 						rawActivities.put(activityName, recodeResponse);
 						mappedActivities.remove(activityName);

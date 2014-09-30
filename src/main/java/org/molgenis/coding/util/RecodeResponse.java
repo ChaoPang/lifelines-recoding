@@ -12,6 +12,7 @@ public class RecodeResponse
 	private final Map<String, Set<Integer>> identifiers;
 	private Hit hit;
 	private boolean isCustomSearched = false;
+	private boolean finalSelection = false;
 
 	public RecodeResponse(String queryString, Hit hit)
 	{
@@ -48,5 +49,15 @@ public class RecodeResponse
 	public void setHit(Hit hit)
 	{
 		this.hit = hit;
+	}
+
+	public boolean isFinalSelection()
+	{
+		return finalSelection;
+	}
+
+	public void setFinalSelection(boolean finalSelection)
+	{
+		this.finalSelection = finalSelection;
 	}
 }
