@@ -119,12 +119,11 @@ public class ViewRecodeController
 	Map<String, Object> request)
 	{
 		if (request.containsKey("data") && request.get("data") != null && request.containsKey("score")
-				&& request.get("score") != null && request.containsKey("query") && request.get("query") != null)
+				&& request.get("score") != null && request.containsKey("query") && request.get("query") != null
+				&& request.containsKey("documentId") && request.get("documentId") != null && request.containsKey("add")
+				&& request.get("add") != null)
 		{
 			Map<String, Object> data = convertData(request.get("data"));
-			float score = Float.parseFloat(request.get("score").toString());
-			String query = request.get("query").toString();
-
 			if (data.containsKey(ElasticSearchImp.DEFAULT_NAME_FIELD)
 					&& data.get(ElasticSearchImp.DEFAULT_NAME_FIELD) != null
 					&& data.containsKey(ElasticSearchImp.DEFAULT_CODE_FIELD)
@@ -134,35 +133,97 @@ public class ViewRecodeController
 					&& data.containsKey(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD)
 					&& data.get(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD) != null)
 			{
-				Object codeSystem = data.get(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD);
-				elasticSearchImp.indexDocument(ElasticSearchImp.addDefaultFields(translateDataToMap(data, query)),
-						codeSystem.toString());
-				Set<String> keySet = new HashSet<String>(rawActivities.keySet());
-				for (String activityName : keySet)
+
+				String queryString = request.get("query").toString();
+				String documentType = data.containsKey(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD)
+						&& data.get(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD) != null ? data.get(
+						ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD).toString() : null;
+				String documentId = request.get("documentId").toString();
+				Float score = Float.parseFloat(request.get("score").toString());
+
+				// Check if the a new code entry needs to be added to the index
+				if (Boolean.parseBoolean(request.get("add").toString()))
 				{
-					List<Hit> searchHits = elasticSearchImp.search(codeSystem.toString(), activityName, null);
-					nGramService.calculateNGramSimilarity(activityName, "name", searchHits);
-					for (Hit hit : searchHits)
+					// Add a new code entry or update the existing code entry
+					// depending on the similarity score
+					if (score.intValue() == 100)
 					{
-						if (hit.getScore().intValue() >= THRESHOLD)
+						Hit hit = elasticSearchImp.getDocumentById(documentId, documentType);
+						StringBuilder updateScriptStringBuilder = new StringBuilder();
+						updateScriptStringBuilder.append("frequency").append('=').append((hit.getFrequency() + 1));
+						elasticSearchImp.updateIndex(hit.getDocumentId(), updateScriptStringBuilder.toString(),
+								documentType);
+					}
+					else
+					{
+						elasticSearchImp.indexDocument(
+								ElasticSearchImp.addDefaultFields(translateDataToMap(data, queryString)), documentType);
+					}
+
+					for (String activityName : new HashSet<String>(rawActivities.keySet()))
+					{
+						List<Hit> searchHits = elasticSearchImp.search(documentType, activityName, null);
+						nGramService.calculateNGramSimilarity(activityName, "name", searchHits);
+						for (Hit hit : searchHits)
 						{
-							// Add/Remove the items to the matched /unmatched
-							// cateogires for which the
-							// matching scores have improved due to the manual
-							// curation
-							if (!mappedActivities.containsKey(activityName))
+							if (hit.getScore().intValue() >= THRESHOLD)
 							{
-								mappedActivities.put(activityName, rawActivities.get(activityName));
-								mappedActivities.get(activityName).setHit(new Hit(hit.getDocumentId(), null, data));
-								mappedActivities.get(activityName).getHit().setScore(score);
-								mappedActivities.get(activityName).getIdentifiers()
-										.putAll(rawActivities.get(activityName).getIdentifiers());
-								rawActivities.remove(activityName);
-								break;
+								// Add/Remove the items to the matched
+								// /unmatched
+								// cateogires for which the
+								// matching scores have improved due to the
+								// manual
+								// curation
+								if (!mappedActivities.containsKey(activityName))
+								{
+									mappedActivities.put(activityName, rawActivities.get(activityName));
+									mappedActivities.get(activityName).setHit(new Hit(hit.getDocumentId(), null, data));
+									mappedActivities.get(activityName).getHit().setScore(score);
+									mappedActivities.get(activityName).getIdentifiers()
+											.putAll(rawActivities.get(activityName).getIdentifiers());
+									rawActivities.remove(activityName);
+									break;
+								}
 							}
 						}
 					}
 				}
+				else
+				{
+					// Only code the this query
+					if (!mappedActivities.containsKey(queryString) && rawActivities.containsKey(queryString))
+					{
+						mappedActivities.put(queryString, rawActivities.get(queryString));
+						mappedActivities.get(queryString).setHit(new Hit(documentId, null, data));
+						mappedActivities.get(queryString).getHit().setScore(score);
+						mappedActivities.get(queryString).getIdentifiers()
+								.putAll(rawActivities.get(queryString).getIdentifiers());
+						rawActivities.remove(queryString);
+					}
+				}
+			}
+		}
+	}
+
+	@RequestMapping(value = "/code", method = RequestMethod.POST, consumes = APPLICATION_JSON_VALUE)
+	@ResponseStatus(OK)
+	public void codeDoc(@RequestBody
+	Map<String, Object> request)
+	{
+		if (request.containsKey("data") && request.get("data") != null && request.containsKey("score")
+				&& request.get("score") != null && request.containsKey("query") && request.get("query") != null)
+		{
+			Map<String, Object> data = convertData(request.get("data"));
+			if (data.containsKey(ElasticSearchImp.DEFAULT_NAME_FIELD)
+					&& data.get(ElasticSearchImp.DEFAULT_NAME_FIELD) != null
+					&& data.containsKey(ElasticSearchImp.DEFAULT_CODE_FIELD)
+					&& data.get(ElasticSearchImp.DEFAULT_CODE_FIELD) != null
+					&& data.containsKey(ElasticSearchImp.DEFAULT_NAME_FIELD)
+					&& data.get(ElasticSearchImp.DEFAULT_NAME_FIELD) != null
+					&& data.containsKey(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD)
+					&& data.get(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD) != null)
+			{
+
 			}
 		}
 	}

@@ -113,9 +113,10 @@ public class ElasticSearchImp implements SearchService
 	}
 
 	@Override
-	public Hit getDocumentById(String documentId)
+	public Hit getDocumentById(String documentId, String codeSystem)
 	{
-		GetResponse response = client.prepareGet(indexName, INDEX_TYPE, documentId).execute().actionGet();
+		GetResponse response = client.prepareGet(indexName, codeSystem == null ? INDEX_TYPE : codeSystem, documentId)
+				.execute().actionGet();
 		Hit hit = null;
 		if (response.isExists())
 		{
@@ -156,12 +157,13 @@ public class ElasticSearchImp implements SearchService
 	}
 
 	@Override
-	public void updateIndex(String documentId, String updateScript)
+	public void updateIndex(String documentId, String updateScript, String documentType)
 	{
 		LOG.info("Going to update document of type [" + INDEX_TYPE + "] with Id : " + documentId);
 
-		UpdateResponse updateResponse = client.prepareUpdate(indexName, INDEX_TYPE, documentId).setRetryOnConflict(3)
-				.setRefresh(true).setScript("ctx._source." + updateScript).execute().actionGet();
+		UpdateResponse updateResponse = client
+				.prepareUpdate(indexName, documentType == null ? INDEX_TYPE : documentType, documentId)
+				.setRetryOnConflict(3).setRefresh(true).setScript("ctx._source." + updateScript).execute().actionGet();
 
 		if (updateResponse == null)
 		{

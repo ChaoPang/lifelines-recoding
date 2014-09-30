@@ -16,11 +16,9 @@ import org.molgenis.coding.ngram.NGramService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 @Controller
@@ -78,10 +76,12 @@ public class FindCodesController
 		Map<String, Object> results = new HashMap<String, Object>();
 
 		if (request.containsKey("data") && request.get("data") != null && request.containsKey("query")
-				&& request.get("query") != null)
+				&& request.get("query") != null && request.containsKey("documentId")
+				&& request.get("documentId") != null)
 		{
 			Map<String, Object> data = ViewRecodeController.convertData(request.get("data"));
 			String query = request.get("query").toString();
+			String documentId = request.get("documentId").toString();
 			results.put("data", data);
 			for (String validField : Arrays.asList("name", "code", "codesystem"))
 			{
@@ -92,72 +92,41 @@ public class FindCodesController
 					return results;
 				}
 			}
+
+			String activityName = data.get("name").toString();
+
 			String documentType = data.containsKey(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD)
 					&& data.get(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD) != null ? data.get(
 					ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD).toString() : null;
 
-			if (documentType == null)
+			Float score = nGramService.ngramSimilarity(query, activityName);
+
+			if (score.intValue() == 100)
 			{
-				results.put("success", false);
-				results.put("message", "code system is invalid");
-				return results;
-			}
-
-			elasticSearchImp.indexDocument(
-					ElasticSearchImp.addDefaultFields(ViewRecodeController.translateDataToMap(data, query)),
-					documentType);
-			results.put("success", true);
-			results.put("message", "new term " + data.get("name") + " has been added to the code " + data.get("code"));
-		}
-
-		return results;
-	}
-
-	@RequestMapping(value = "/update/{documentId}", method = RequestMethod.POST, produces = APPLICATION_JSON_VALUE)
-	@ResponseBody
-	public Map<String, Object> updateDoc(@PathVariable("documentId")
-	String documentId) throws IOException, ParseException
-	{
-		Map<String, Object> results = new HashMap<String, Object>();
-		Hit hit = elasticSearchImp.getDocumentById(documentId);
-		StringBuilder updateScriptStringBuilder = new StringBuilder();
-		updateScriptStringBuilder.append("frequency").append('=').append((hit.getFrequency() + 1));
-		elasticSearchImp.updateIndex(hit.getDocumentId(), updateScriptStringBuilder.toString());
-		results.put("message", "The code "
-				+ hit.getColumnValueMap().get(ElasticSearchImp.DEFAULT_CODE_FIELD).toString() + ", name "
-				+ hit.getColumnValueMap().get(ElasticSearchImp.DEFAULT_NAME_FIELD) + " has been updated!");
-		return results;
-	}
-
-	@RequestMapping(value = "/validate", method = RequestMethod.POST, produces = APPLICATION_JSON_VALUE)
-	@ResponseBody
-	public Map<String, Object> validateDoc(@RequestParam(required = true)
-	String query, @RequestParam(required = true)
-	String name) throws IOException, ParseException
-	{
-		Map<String, Object> results = new HashMap<String, Object>();
-
-		if (query != null && name != null)
-		{
-			Float score = nGramService.ngramSimilarity(query, name);
-			if (score.intValue() >= 80 && score.intValue() <= 100)
-			{
-				results.put("success", true);
-				results.put("message", "The input query <u>" + query
-						+ "</u> is very similar to the selected code. Do you agree to the suggested code?");
+				Hit hit = elasticSearchImp.getDocumentById(documentId, documentType);
+				StringBuilder updateScriptStringBuilder = new StringBuilder();
+				updateScriptStringBuilder.append("frequency").append('=').append((hit.getFrequency() + 1));
+				elasticSearchImp.updateIndex(hit.getDocumentId(), updateScriptStringBuilder.toString(), documentType);
+				results.put("message", "The code "
+						+ hit.getColumnValueMap().get(ElasticSearchImp.DEFAULT_CODE_FIELD).toString() + ", name "
+						+ hit.getColumnValueMap().get(ElasticSearchImp.DEFAULT_NAME_FIELD) + " has been updated!");
 			}
 			else
 			{
-				results.put("success", false);
-				results.put("message", "The query <u>" + query
-						+ "</u> is not very similar to the selected code. Would you like to add <u>" + query
-						+ "</u> to code group?");
+				if (documentType == null)
+				{
+					results.put("success", false);
+					results.put("message", "code system is invalid");
+					return results;
+				}
+
+				elasticSearchImp.indexDocument(
+						ElasticSearchImp.addDefaultFields(ViewRecodeController.translateDataToMap(data, query)),
+						documentType);
+				results.put("success", true);
+				results.put("message",
+						"new term " + data.get("name") + " has been added to the code " + data.get("code"));
 			}
-		}
-		else
-		{
-			results.put("alert", "error");
-			results.put("message", "Failed to update the code dataset!");
 		}
 
 		return results;

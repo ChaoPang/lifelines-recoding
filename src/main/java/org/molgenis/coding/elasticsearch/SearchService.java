@@ -19,7 +19,7 @@ public interface SearchService
 
 	public List<Hit> search(String documentType, String query, String field);
 
-	public void updateIndex(String documentId, String updateScript);
+	public void updateIndex(String documentId, String updateScript, String documentType);
 
-	public Hit getDocumentById(String documentId);
+	public Hit getDocumentById(String documentId, String documentType);
 }

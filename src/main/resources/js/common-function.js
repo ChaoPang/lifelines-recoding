@@ -6,6 +6,7 @@
 		var hits = options.hits;
 		var parentElement = options.parentElement;
 		var addCodeFunction = (options.addCode && typeof options.addCode === 'function' ? options.addCode : molgenis.defaultAddCode);
+		var codeFunction = (options.addCode && typeof options.addCode === 'function' ? options.addCode : molgenis.defaultAddCode);
 		
 		if(hits.length > 0){
 			var table = $('<table />').addClass('table table-bordered');
@@ -32,32 +33,30 @@
 			
 			var tableContainer = $('<div />').addClass('row-fluid').appendTo(parentElement);
 			var controlContainer = $('<div />').addClass('row-fluid').appendTo(parentElement);
-			var selectCodeButton = $('<button class="btn btn-primary btn-float-right" type="button">Select code</button>');
-			var selectUnknowButton = $('<button class="btn btn-danger btn-float-right-align" type="button">Unknow code</button>');
+			var selectUnknowButton = $('<button class="btn btn-danger" type="button">Unknow code</button>');
+			var selectCodeButton = $('<button class="btn btn-primary btn-float-right" type="button">Code data</button>');
+			var addCodeButton = $('<button class="btn btn-float-right-align" type="button">Code and add</button>');
 			$('<div />').addClass('span12').append(table).appendTo(tableContainer);
-			$('<div />').addClass('span12').append(selectUnknowButton).append(selectCodeButton).appendTo(controlContainer);
+			$('<div />').addClass('span12').append(selectUnknowButton).append(addCodeButton).append(selectCodeButton).appendTo(controlContainer);
 			
 			selectCodeButton.click(function(){
 				$.each(table.find('input:checkbox'), function(index, checkbox){
 					if($(checkbox).is(':checked')){
-						var searchHit = $(checkbox).parents('tr:first').data('searchHit');
-						molgenis.validateCodes(queryString, searchHit, tableContainer.children('div:first'), function(data){
-							var addCodeButton = $('<button class="btn btn-float-right" type="button">Add code</button>');
-							selectCodeButton.siblings('button').remove();
-							selectCodeButton.after(addCodeButton);
-							addCodeButton.click(function(){
-								//update existing code
-								if(data.success){
-									molgenis.updateCode(searchHit.documentId);
-									
-								}else{
-									addCodeFunction(queryString, searchHit);
-								}
-								setTimeout(function(){
-									location.reload();
-								},1500);
-							});
-						});
+						addCodeFunction(queryString, $(checkbox).parents('tr:first').data('searchHit'), false);
+						setTimeout(function(){
+							location.reload();
+						},1500);
+					}
+				});
+			});
+			
+			addCodeButton.click(function(){
+				$.each(table.find('input:checkbox'), function(index, checkbox){
+					if($(checkbox).is(':checked')){
+						addCodeFunction(queryString, $(checkbox).parents('tr:first').data('searchHit'), true);
+						setTimeout(function(){
+							location.reload();
+						},1500);
 					}
 				});
 			});
@@ -72,7 +71,7 @@
 					'query' : queryString,
 					'score' : '0'
 				};
-				addCodeFunction(queryString, hit);
+				addCodeFunction(queryString, hit, true);
 				setTimeout(function(){
 					location.reload();
 				},1500);
@@ -92,7 +91,7 @@
 				if(callback) callback(data)
 			}
 		});
-	}
+	};
 	
 	molgenis.defaultAddCode = function(query, hit, callback){
 		var request = {
@@ -101,6 +100,7 @@
 				'name' : hit.columnValueMap.name,
 				'codesystem' : hit.columnValueMap.codesystem,
 			},
+			'documentId' : hit.documentId,
 			'query' : query,
 			'score' : hit.score
 		};
@@ -110,31 +110,7 @@
 			data : JSON.stringify(request),
 			contentType : 'application/json',
 			success : function(data){
-				if(callback) callback(data);
-			}
-		});
-	};
-	
-	molgenis.updateCode = function(documentId){
-		$.ajax({
-			type : 'POST',
-			url :  '/update/' + documentId,
-			contentType : 'application/json',
-			success : function(data){
-				console.log(data);
-			}
-		});
-	};
-	
-	molgenis.validateCodes = function(query, updateHit, parentElement, callback){
-		$.ajax({
-			type : 'POST',
-			url :  '/validate?name=' + updateHit.name + '&query=' + query,
-			contentType : 'application/json',
-			success : function(data){
-				$(parentElement).find('.alert').remove();
-				molgenis.createAlert([data], data.success ? 'success' : 'warning', $(parentElement));
-				callback(data);
+				if(callback && typeof callback === 'function') callback(data);
 			}
 		});
 	};

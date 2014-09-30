@@ -87,15 +87,17 @@
 			}
 		}
 		
-		function addCodeFunction(query, hit){
+		function addCodeFunction(query, hit, toAdd){
 			var request = {
 				'data' : {
 					'code' : hit.columnValueMap.code,
 					'name' : hit.columnValueMap.name,
 					'codesystem' : hit.columnValueMap.codesystem,
 				},
+				'documentId' : hit.documentId,
 				'query' : query,
-				'score' : hit.score
+				'score' : hit.score,
+				'add' : toAdd
 			};
 			$.ajax({
 				type : 'POST',
