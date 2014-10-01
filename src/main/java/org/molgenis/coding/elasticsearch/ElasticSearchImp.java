@@ -1,6 +1,9 @@
 package org.molgenis.coding.elasticsearch;
 
+import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -39,6 +42,8 @@ public class ElasticSearchImp implements SearchService
 	public static final String DEFAULT_FREQUENCY_FIELD = "frequency";
 	public static final String DEFAULT_ORIGINAL_FIELD = "original";
 	public static final String DEFAULT_CODESYSTEM_FIELD = "codesystem";
+	public static final String DEFAULT_DATE_FIELD = "date";
+	public static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("E yyyy.MM.dd 'at' hh:mm:ss a zzz");
 
 	public ElasticSearchImp(String indexName, Client client)
 	{
@@ -52,7 +57,7 @@ public class ElasticSearchImp implements SearchService
 
 	@Async
 	@Override
-	public void indexRepository(Repository repository)
+	public void indexRepository(Repository repository) throws IOException
 	{
 		Iterator<Entity> iterator = repository.iterator();
 		if (iterator.hasNext())
@@ -153,6 +158,13 @@ public class ElasticSearchImp implements SearchService
 		else queryStringBuilder.append(fuzzyQueryProcess);
 
 		searchRequestbuilder.setQuery(QueryBuilders.queryString(queryStringBuilder.toString()));
+
+		// SortOrder sortOrder = sortDirection == Direction.ASC ? SortOrder.ASC
+		// : SortOrder.DESC;
+		// FieldSortBuilder sortBuilder =
+		// SortBuilders.fieldSort(sortField).order(sortOrder).sortMode("min");
+		// searchRequestBuilder.addSort(sortBuilder);
+
 		return parseSearchResponse(searchRequestbuilder);
 	}
 
@@ -185,7 +197,6 @@ public class ElasticSearchImp implements SearchService
 			{
 				sb.append(failure.shard()).append(":").append(failure.reason());
 			}
-
 			return documents;
 		}
 
@@ -213,12 +224,12 @@ public class ElasticSearchImp implements SearchService
 				}
 			}
 		}
-
 		return fuzzyQueryString.toString();
 	}
 
 	private Iterator<BulkRequestBuilder> buildIndexRequest(final Repository repository)
 	{
+		final String indexDataTime = DATE_FORMAT.format(new Date());
 		return new Iterator<BulkRequestBuilder>()
 		{
 			private final long rows = RepositoryUtils.count(repository);
@@ -247,6 +258,7 @@ public class ElasticSearchImp implements SearchService
 					}
 					doc.put(DEFAULT_FREQUENCY_FIELD, Integer.valueOf(1));
 					doc.put(DEFAULT_ORIGINAL_FIELD, true);
+					doc.put(DEFAULT_DATE_FIELD, indexDataTime);
 					String documentType = entity.getString(DEFAULT_CODESYSTEM_FIELD);
 					if (documentType != null)
 					{
@@ -304,6 +316,7 @@ public class ElasticSearchImp implements SearchService
 	{
 		data.put(DEFAULT_FREQUENCY_FIELD, Integer.valueOf(1));
 		data.put(DEFAULT_ORIGINAL_FIELD, false);
+		data.put(DEFAULT_DATE_FIELD, DATE_FORMAT.format(new Date()));
 		return data;
 	}
 }

@@ -1,18 +1,21 @@
 package org.molgenis.coding.util;
 
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
 import org.molgenis.coding.elasticsearch.Hit;
 
-public class RecodeResponse
+public class RecodeResponse implements Comparable<RecodeResponse>
 {
 	private final String queryString;
 	private final Map<String, Set<Integer>> identifiers;
 	private Hit hit;
 	private boolean isCustomSearched = false;
 	private boolean finalSelection = false;
+	private Date addedDate;
+	private String dateString;
 
 	public RecodeResponse(String queryString, Hit hit)
 	{
@@ -60,4 +63,36 @@ public class RecodeResponse
 	{
 		this.finalSelection = finalSelection;
 	}
+
+	public Date getAddedDate()
+	{
+		return addedDate;
+	}
+
+	public void setAddedDate(Date addedDate)
+	{
+		this.addedDate = addedDate;
+		setDateString(addedDate.toString());
+	}
+
+	public String getDateString()
+	{
+		return dateString;
+	}
+
+	public void setDateString(String dateString)
+	{
+		this.dateString = dateString;
+	}
+
+	@Override
+	public int compareTo(RecodeResponse o)
+	{
+		if (o.getAddedDate().compareTo(getAddedDate()) == 0)
+		{
+			return o.getHit().getScore().compareTo(getHit().getScore());
+		}
+		return o.getAddedDate().compareTo(getAddedDate());
+	}
+
 }

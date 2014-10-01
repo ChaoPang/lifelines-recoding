@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -110,8 +111,12 @@ public class ViewRecodeController
 	public Map<String, Object> retrieveReport()
 	{
 		Map<String, Object> results = new HashMap<String, Object>();
-		results.put("matched", mappedActivities.values());
-		results.put("unmatched", rawActivities.values());
+		List<RecodeResponse> listOfMapped = new ArrayList<RecodeResponse>(mappedActivities.values());
+		List<RecodeResponse> listOfUnMapped = new ArrayList<RecodeResponse>(rawActivities.values());
+		Collections.sort(listOfMapped);
+		Collections.sort(listOfUnMapped);
+		results.put("matched", listOfMapped);
+		results.put("unmatched", listOfUnMapped);
 		return results;
 	}
 
@@ -204,6 +209,7 @@ public class ViewRecodeController
 					}
 				}
 				mappedActivities.get(queryString).setFinalSelection(true);
+				mappedActivities.get(queryString).setAddedDate(new Date());
 			}
 		}
 	}
@@ -239,6 +245,7 @@ public class ViewRecodeController
 				mappedActivities.get(queryString).getIdentifiers()
 						.putAll(rawActivities.get(queryString).getIdentifiers());
 				mappedActivities.get(queryString).setFinalSelection(true);
+				mappedActivities.get(queryString).setAddedDate(new Date());
 				rawActivities.remove(queryString);
 			}
 		}
@@ -256,6 +263,7 @@ public class ViewRecodeController
 			if (mappedActivities.containsKey(queryString))
 			{
 				rawActivities.put(queryString, mappedActivities.get(queryString));
+				rawActivities.get(queryString).setFinalSelection(false);
 				List<Hit> searchHits = elasticSearchImp.search(selectedCodeSystem, queryString, null);
 				nGramService.calculateNGramSimilarity(queryString, "name", searchHits);
 				if (searchHits.size() > 0) mappedActivities.get(queryString).setHit(searchHits.get(0));
@@ -264,15 +272,6 @@ public class ViewRecodeController
 				mappedActivities.remove(queryString);
 			}
 		}
-	}
-
-	public static Map<String, Object> translateDataToMap(Map<String, Object> data, String query)
-	{
-		Map<String, Object> doc = new HashMap<String, Object>();
-		doc.put(ElasticSearchImp.DEFAULT_NAME_FIELD, query);
-		doc.put(ElasticSearchImp.DEFAULT_CODE_FIELD, data.get(ElasticSearchImp.DEFAULT_CODE_FIELD));
-		doc.put(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD, data.get(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD));
-		return doc;
 	}
 
 	@RequestMapping(value = "/threshold", method = RequestMethod.POST)
@@ -349,10 +348,9 @@ public class ViewRecodeController
 				// ExcelRepository sheet = collection.getSheet(0);
 				if (serverFile.exists())
 				{
-					List<CellProcessor> cellProcessors = new ArrayList<CellProcessor>();
-					cellProcessors.add(new LowerCaseProcessor());
-					cellProcessors.add(new TrimProcessor());
-					csvRepository = new CsvRepository(new File(serverFile.getAbsolutePath()), cellProcessors, ';');
+
+					csvRepository = new CsvRepository(new File(serverFile.getAbsolutePath()),
+							Arrays.<CellProcessor> asList(new LowerCaseProcessor(), new TrimProcessor()), ';');
 
 					if (validateExcelColumnHeaders(csvRepository.getEntityMetaData()))
 					{
@@ -365,6 +363,8 @@ public class ViewRecodeController
 						{
 							maxNumColumns.add(attributeMetaData.getName());
 						}
+
+						Date indexedDate = new Date();
 
 						while (iterator.hasNext())
 						{
@@ -405,6 +405,7 @@ public class ViewRecodeController
 												}
 												mappedActivities.get(activityName).getIdentifiers()
 														.get(individualIdentifier).add(columnIndex);
+												mappedActivities.get(activityName).setAddedDate(indexedDate);
 											}
 											else
 											{
@@ -421,6 +422,7 @@ public class ViewRecodeController
 												}
 												rawActivities.get(activityName).getIdentifiers()
 														.get(individualIdentifier).add(columnIndex);
+												rawActivities.get(activityName).setAddedDate(indexedDate);
 											}
 											break;
 										}
@@ -542,6 +544,15 @@ public class ViewRecodeController
 		{
 			IOUtils.closeQuietly(zipOutputStream);
 		}
+	}
+
+	public static Map<String, Object> translateDataToMap(Map<String, Object> data, String query)
+	{
+		Map<String, Object> doc = new HashMap<String, Object>();
+		doc.put(ElasticSearchImp.DEFAULT_NAME_FIELD, query);
+		doc.put(ElasticSearchImp.DEFAULT_CODE_FIELD, data.get(ElasticSearchImp.DEFAULT_CODE_FIELD));
+		doc.put(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD, data.get(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD));
+		return doc;
 	}
 
 	private void zipFile(ZipOutputStream zipOutputStream, List<String> filePaths) throws IOException

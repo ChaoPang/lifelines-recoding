@@ -120,7 +120,7 @@
 		</div>
 	</div>
 	<div class="row-fluid">
-		<div id="result-container" class="offset3 span6"></div>
+		<div id="result-container"></div>
 	</div>
 </form>
 <script>
