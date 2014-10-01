@@ -7,7 +7,9 @@ import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.IOException;
+import java.io.LineNumberReader;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -44,6 +46,7 @@ import org.molgenis.data.processor.LowerCaseProcessor;
 import org.molgenis.data.processor.TrimProcessor;
 import org.molgenis.data.support.MapEntity;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -113,10 +116,37 @@ public class ViewRecodeController
 		Map<String, Object> results = new HashMap<String, Object>();
 		List<RecodeResponse> listOfMapped = new ArrayList<RecodeResponse>(mappedActivities.values());
 		List<RecodeResponse> listOfUnMapped = new ArrayList<RecodeResponse>(rawActivities.values());
+
 		Collections.sort(listOfMapped);
 		Collections.sort(listOfUnMapped);
-		results.put("matched", listOfMapped);
-		results.put("unmatched", listOfUnMapped);
+
+		results.put("matched", listOfMapped.subList(0, listOfMapped.size() <= 100 ? listOfMapped.size() : 100));
+		results.put("unmatched", listOfUnMapped.subList(0, listOfUnMapped.size() <= 10 ? listOfUnMapped.size() : 10));
+
+		return results;
+	}
+
+	@RequestMapping(value = "/totalnumber", method = RequestMethod.GET, produces = APPLICATION_JSON_VALUE)
+	@ResponseBody
+	public Map<String, Object> retrieveTotalNumber()
+	{
+		Map<String, Object> results = new HashMap<String, Object>();
+
+		int matchedTotal = 0;
+		for (RecodeResponse recodeResponse : mappedActivities.values())
+		{
+			matchedTotal += recodeResponse.getIdentifiers().size();
+		}
+
+		int unmatchedTotal = 0;
+		for (RecodeResponse recodeResponse : rawActivities.values())
+		{
+			unmatchedTotal += recodeResponse.getIdentifiers().size();
+		}
+
+		results.put("matchedTotal", matchedTotal);
+		results.put("unmatchedTotal", unmatchedTotal);
+
 		return results;
 	}
 
@@ -334,120 +364,7 @@ public class ViewRecodeController
 	{
 		if (!file.isEmpty() && !StringUtils.isEmpty(codeSystem))
 		{
-			CsvRepository csvRepository = null;
-			try
-			{
-				selectedCodeSystem = codeSystem;
-
-				File serverFile = createFileOnServer(file);
-
-				// ExcelRepositoryCollection collection = new
-				// ExcelRepositoryCollection(new File(
-				// serverFile.getAbsolutePath()), new LowerCaseProcessor(), new
-				// TrimProcessor());
-				// ExcelRepository sheet = collection.getSheet(0);
-				if (serverFile.exists())
-				{
-
-					csvRepository = new CsvRepository(new File(serverFile.getAbsolutePath()),
-							Arrays.<CellProcessor> asList(new LowerCaseProcessor(), new TrimProcessor()), ';');
-
-					if (validateExcelColumnHeaders(csvRepository.getEntityMetaData()))
-					{
-						// Map to store the activity name with corresponding
-						// individuals
-						Iterator<Entity> iterator = csvRepository.iterator();
-
-						for (AttributeMetaData attributeMetaData : csvRepository.getEntityMetaData()
-								.getAtomicAttributes())
-						{
-							maxNumColumns.add(attributeMetaData.getName());
-						}
-
-						Date indexedDate = new Date();
-
-						while (iterator.hasNext())
-						{
-							Entity entity = iterator.next();
-							String individualIdentifier = entity.getString("Identifier");
-							invalidIndividuals.add(individualIdentifier);
-							for (String columnName : maxNumColumns)
-							{
-								if (columnName.equalsIgnoreCase("identifier")) continue;
-
-								if (columnName.toLowerCase().startsWith("name"))
-								{
-									String activityName = entity.getString(columnName);
-									Integer columnIndex = maxNumColumns.indexOf(columnName);
-
-									if (!StringUtils.isEmpty(individualIdentifier)
-											&& !StringUtils.isEmpty(activityName))
-									{
-										if (invalidIndividuals.contains(individualIdentifier)) invalidIndividuals
-												.remove(individualIdentifier);
-
-										List<Hit> searchHits = elasticSearchImp.search(codeSystem, activityName, null);
-										nGramService.calculateNGramSimilarity(activityName, "name", searchHits);
-										for (Hit hit : searchHits)
-										{
-											if (hit.getScore().intValue() >= THRESHOLD)
-											{
-												if (!mappedActivities.containsKey(activityName))
-												{
-													mappedActivities.put(activityName, new RecodeResponse(activityName,
-															hit));
-												}
-												if (!mappedActivities.get(activityName).getIdentifiers()
-														.containsKey(individualIdentifier))
-												{
-													mappedActivities.get(activityName).getIdentifiers()
-															.put(individualIdentifier, new HashSet<Integer>());
-												}
-												mappedActivities.get(activityName).getIdentifiers()
-														.get(individualIdentifier).add(columnIndex);
-												mappedActivities.get(activityName).setAddedDate(indexedDate);
-											}
-											else
-											{
-												if (!rawActivities.containsKey(activityName))
-												{
-													rawActivities.put(activityName, new RecodeResponse(activityName,
-															hit));
-												}
-												if (!rawActivities.get(activityName).getIdentifiers()
-														.containsKey(individualIdentifier))
-												{
-													rawActivities.get(activityName).getIdentifiers()
-															.put(individualIdentifier, new HashSet<Integer>());
-												}
-												rawActivities.get(activityName).getIdentifiers()
-														.get(individualIdentifier).add(columnIndex);
-												rawActivities.get(activityName).setAddedDate(indexedDate);
-											}
-											break;
-										}
-									}
-								}
-							}
-						}
-
-						isRecoding = true;
-					}
-					else
-					{
-						model.addAttribute("message", "The columns are invalid. Please look at the example!");
-					}
-				}
-			}
-			catch (Throwable e)
-			{
-				if (csvRepository != null) csvRepository.close();
-				model.addAttribute("message", e.getMessage());
-				rawActivities.clear();
-				mappedActivities.clear();
-				maxNumColumns.clear();
-				invalidIndividuals.clear();
-			}
+			processUploadedVariableData(file, codeSystem);
 		}
 		return "redirect:/recode";
 	}
@@ -580,6 +497,120 @@ public class ViewRecodeController
 		}
 	}
 
+	@Async
+	private void processUploadedVariableData(MultipartFile file, String codeSystem) throws IOException
+	{
+		CsvRepository csvRepository = null;
+		try
+		{
+			selectedCodeSystem = codeSystem;
+
+			File serverFile = createFileOnServer(file);
+
+			if (serverFile.exists())
+			{
+				csvRepository = new CsvRepository(new File(serverFile.getAbsolutePath()),
+						Arrays.<CellProcessor> asList(new LowerCaseProcessor(), new TrimProcessor()), ';');
+
+				if (validateExcelColumnHeaders(csvRepository.getEntityMetaData()))
+				{
+					// Map to store the activity name with corresponding
+					// individuals
+					Iterator<Entity> iterator = csvRepository.iterator();
+
+					for (AttributeMetaData attributeMetaData : csvRepository.getEntityMetaData().getAtomicAttributes())
+					{
+						maxNumColumns.add(attributeMetaData.getName());
+					}
+
+					Date indexedDate = new Date();
+
+					while (iterator.hasNext())
+					{
+						Entity entity = iterator.next();
+						String individualIdentifier = entity.getString("Identifier");
+						invalidIndividuals.add(individualIdentifier);
+						for (String columnName : maxNumColumns)
+						{
+							if (columnName.equalsIgnoreCase("identifier")) continue;
+
+							if (columnName.toLowerCase().startsWith("name"))
+							{
+								String activityName = entity.getString(columnName);
+								Integer columnIndex = maxNumColumns.indexOf(columnName);
+
+								if (!StringUtils.isEmpty(individualIdentifier) && !StringUtils.isEmpty(activityName))
+								{
+									if (invalidIndividuals.contains(individualIdentifier)) invalidIndividuals
+											.remove(individualIdentifier);
+
+									List<Hit> searchHits = elasticSearchImp.search(codeSystem, activityName, null);
+									nGramService.calculateNGramSimilarity(activityName, "name", searchHits);
+									for (Hit hit : searchHits)
+									{
+										if (hit.getScore().intValue() >= THRESHOLD)
+										{
+											if (!mappedActivities.containsKey(activityName))
+											{
+												mappedActivities.put(activityName,
+														new RecodeResponse(activityName, hit));
+											}
+											if (!mappedActivities.get(activityName).getIdentifiers()
+													.containsKey(individualIdentifier))
+											{
+												mappedActivities.get(activityName).getIdentifiers()
+														.put(individualIdentifier, new HashSet<Integer>());
+											}
+											mappedActivities.get(activityName).getIdentifiers()
+													.get(individualIdentifier).add(columnIndex);
+											mappedActivities.get(activityName).setAddedDate(indexedDate);
+										}
+										else
+										{
+											if (!rawActivities.containsKey(activityName))
+											{
+												rawActivities.put(activityName, new RecodeResponse(activityName, hit));
+											}
+											if (!rawActivities.get(activityName).getIdentifiers()
+													.containsKey(individualIdentifier))
+											{
+												rawActivities.get(activityName).getIdentifiers()
+														.put(individualIdentifier, new HashSet<Integer>());
+											}
+											rawActivities.get(activityName).getIdentifiers().get(individualIdentifier)
+													.add(columnIndex);
+											rawActivities.get(activityName).setAddedDate(indexedDate);
+										}
+										break;
+									}
+								}
+							}
+						}
+					}
+
+					isRecoding = true;
+				}
+				// else
+				// {
+				// model.addAttribute("message",
+				// "The columns are invalid. Please look at the example!");
+				// }
+			}
+		}
+		catch (Throwable e)
+		{
+			// model.addAttribute("message", e.getMessage());
+			rawActivities.clear();
+			mappedActivities.clear();
+			maxNumColumns.clear();
+			invalidIndividuals.clear();
+		}
+		finally
+		{
+			if (csvRepository != null) csvRepository.close();
+		}
+	}
+
 	private File createFileOnServer(MultipartFile file) throws IOException
 	{
 		String rootPath = System.getProperty("java.io.tmpdir");
@@ -621,5 +652,24 @@ public class ViewRecodeController
 			}
 		}
 		return map;
+	}
+
+	public static int getLineNumber(File file) throws IOException
+	{
+		int lineNumber = 0;
+		if (file.exists())
+		{
+			LineNumberReader lnr = new LineNumberReader(new FileReader(file));
+			try
+			{
+				lnr.skip(Long.MAX_VALUE);
+				lineNumber = lnr.getLineNumber();
+			}
+			finally
+			{
+				lnr.close();
+			}
+		}
+		return lineNumber;
 	}
 }

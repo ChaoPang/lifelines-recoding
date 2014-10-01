@@ -1,4 +1,18 @@
 (function($, molgenis) {
+	
+	molgenis.retrieveTotalNumber = function(callback){
+		$.ajax({
+			type : 'GET',
+			url :  '/recode/totalnumber',
+			contentType : 'application/json',
+			success : function(data){
+				if(callback && typeof callback === 'function'){
+					callback(data);
+				}
+			}
+		});
+	};
+	
 	molgenis.retrieveResult = function(matchedContainer, unmatchedContainer, resultContainer, codeSystem){
 		$.ajax({
 			type : 'GET',
@@ -10,17 +24,9 @@
 			}
 		});
 		function createReportTable(matchingResults, parentElement, resultContainer, matched){
-			//Sort results based on similarity score from high to low
-			var totalNumber = 0;
-			$.each(matchingResults, function(index, recodeResponse){
-				totalNumber += Object.keys(recodeResponse.identifiers).length;
-			});
-			
 			var showResultButton = $('<button class="btn ' + (matched ? 'btn-primary' : 'btn-info') + '" type="button" style=float:right;>Show result</button>');
-			$('<div />').addClass('span8').append('The total number of ' + (matched ? 'matched' : 'unmatched') + ' items is <strong>' + totalNumber + '</strong>').appendTo(parentElement);
 			$('<div />').addClass('span4').append(showResultButton).appendTo(parentElement);
-			
-			if(totalNumber > 0){
+			if(matchingResults.length > 0){
 				showResultButton.click(function(){
 					if(matched){
 						$(resultContainer).removeClass('offset3 span6').addClass('offset2 span8');
@@ -138,8 +144,6 @@
 			});
 		}
 		
-		
-
 		function unknownCode(data){
 			$.ajax({
 				type : 'POST',

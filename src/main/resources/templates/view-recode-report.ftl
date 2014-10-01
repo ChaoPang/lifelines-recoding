@@ -111,8 +111,16 @@
 	</div>
 	<div class="row-fluid">
 		<div class="offset4 span4 well">
-			<div id="matched-container" class="row-fluid"></div><br>
-			<div id="unmatched-container" class="row-fluid"></div><br><br>
+			<div id="matched-container" class="row-fluid">
+				<div class="span8">
+					The total number of matched items is <strong><span id="total-matched"></span></strong>
+				</div>
+			</div><br>
+			<div id="unmatched-container" class="row-fluid">
+				<div class="span8">
+					The total number of unmatched items is <strong><span id="total-unmatched"></span></strong>
+				</div>
+			</div><br><br>
 			<div class="row-fluid">
 				<button id="download-button" class="btn btn-inverse" type="button">Download</button>
 				<button id="finished-button" class="btn" type="button">Finish recoding</button>
@@ -125,6 +133,10 @@
 </form>
 <script>
 	$(document).ready(function(){
+		molgenis.retrieveTotalNumber(function(data){
+			if(data.matchedTotal) $('#total-matched').append(data.matchedTotal);
+			if(data.unmatchedTotal) $('#total-unmatched').append(data.unmatchedTotal);
+		});
 		molgenis.retrieveResult($('#matched-container'), $('#unmatched-container'), $('#result-container'), '${selectedCodeSystem}');
 		$('#finished-button').click(function(){
 			$('form:first').attr({
