@@ -1,5 +1,45 @@
 (function($, molgenis) {
 	
+	molgenis.checkBackup = function(parentElement){
+		$.ajax({
+			type : 'GET',
+			url :  '/recode/check',
+			contentType : 'application/json',
+			success : function(data){
+				if(data.backup){
+					var layoutDiv = $('<div />').addClass('offset3 span6 well').appendTo(parentElement);
+					var textDiv = $('<div />').addClass('row-fluid').appendTo(layoutDiv);
+					var buttonDiv = $('<div />').addClass('row-fluid').appendTo(layoutDiv);
+					
+					var recoveryButton = $('<button type="button" class="btn btn-primary">Recover</button>').css('float','right');
+					var dismissButton = $('<button type="button" class="btn">Dismiss</button>').css('float','right');
+					
+					$('<div />').addClass('span12').append('The backup exists, would you like to recover the previous session?</br></br>').appendTo(textDiv);
+					$('<div />').addClass('offset6 span3').append(recoveryButton).appendTo(buttonDiv);
+					$('<div />').addClass('span3').append(dismissButton).appendTo(buttonDiv);
+					
+					dismissButton.click(function(){
+						parentElement.empty();
+					});
+					
+					recoveryButton.click(function(){
+						$.ajax({
+							type : 'GET',
+							url :  '/recode/recovery',
+							success : function(data){
+								if(data.success){
+									location.reload();
+								}else{
+									console.log(data.message);
+								}
+							}
+						});
+					})
+				}
+			}
+		});
+	};
+	
 	molgenis.retrieveTotalNumber = function(callback){
 		$.ajax({
 			type : 'GET',
@@ -32,13 +72,16 @@
 						$(resultContainer).removeClass('offset3 span6').addClass('offset2 span8');
 					}else{
 						$(resultContainer).removeClass('offset2 span8').addClass('offset3 span6');
+						//sort by score only when results are not matched yet
+						matchingResults = matchingResults.sort(function(a,b){
+							return molgenis.naturalSort(b.hit.score, a.hit.score);
+						});
 					}
 					var table = $('<table />').addClass('table table-bordered');
 					$('<tr />').append('<th>Input</th><th>Individuals</th>' + (matched ? '<th>Matched code</th><th>Code system</th><th>Score</th><th>date added</th><th>Delete</th>' : '<th style="text-align:center;">Curation</th>')).appendTo(table);
 					$.each(matchingResults, function(index, recodeResponse){
 						var row = $('<tr />').append('<td>' + recodeResponse.queryString + '</td>').
 							append('<td>' + Object.keys(recodeResponse.identifiers).length + '</td>');
-						
 						if(recodeResponse.finalSelection){
 							row.css('background','#CEECF5');
 						}

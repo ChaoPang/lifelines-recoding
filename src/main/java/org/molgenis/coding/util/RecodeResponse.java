@@ -72,7 +72,7 @@ public class RecodeResponse implements Comparable<RecodeResponse>
 	public void setAddedDate(Date addedDate)
 	{
 		this.addedDate = addedDate;
-		setDateString(addedDate.toString());
+		if (addedDate != null) setDateString(addedDate.toString());
 	}
 
 	public String getDateString()

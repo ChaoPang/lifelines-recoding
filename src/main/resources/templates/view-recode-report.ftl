@@ -9,6 +9,7 @@
 		<center><h3>Recode data</h3></center>
 		</div>
 	</div><br><br>
+	<div id="backup-check" class="row-fluid"></div>
 	<div class="row-fluid">
 		<div class="offset3 span6 well">
 			<strong>Select a code system : </strong>
@@ -86,6 +87,7 @@
 				select.append('<option value="' + hit.columnValueMap.name + '">' + hit.columnValueMap.name + '</option>');
 			});
 		});
+		molgenis.checkBackup($('#backup-check'));
 	});
 </script>
 <#else>
@@ -134,8 +136,8 @@
 <script>
 	$(document).ready(function(){
 		molgenis.retrieveTotalNumber(function(data){
-			if(data.matchedTotal) $('#total-matched').append(data.matchedTotal);
-			if(data.unmatchedTotal) $('#total-unmatched').append(data.unmatchedTotal);
+			$('#total-matched').append(data.matchedTotal ? data.matchedTotal : 0);
+			$('#total-unmatched').append(data.unmatchedTotal ? data.unmatchedTotal : 0);
 		});
 		molgenis.retrieveResult($('#matched-container'), $('#unmatched-container'), $('#result-container'), '${selectedCodeSystem}');
 		$('#finished-button').click(function(){

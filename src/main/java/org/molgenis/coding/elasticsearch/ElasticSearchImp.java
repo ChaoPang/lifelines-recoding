@@ -16,6 +16,8 @@ import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsReques
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.delete.DeleteResponse;
+import org.elasticsearch.action.deletebyquery.DeleteByQueryResponse;
+import org.elasticsearch.action.deletebyquery.IndexDeleteByQueryResponse;
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexRequestBuilder;
 import org.elasticsearch.action.search.SearchRequestBuilder;
@@ -24,6 +26,7 @@ import org.elasticsearch.action.search.ShardSearchFailure;
 import org.elasticsearch.action.update.UpdateResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.query.TermQueryBuilder;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
@@ -63,15 +66,6 @@ public class ElasticSearchImp implements SearchService
 	@Override
 	public void indexRepository(Repository repository) throws IOException
 	{
-		Iterator<Entity> iterator = repository.iterator();
-		if (iterator.hasNext())
-		{
-			Entity firstEntity = iterator.next();
-			Map<String, Object> data = new HashMap<String, Object>();
-			data.put("name", firstEntity.getString(DEFAULT_CODESYSTEM_FIELD));
-			indexDocument(data);
-		}
-
 		Iterator<BulkRequestBuilder> requests = buildIndexRequest(repository);
 		while (requests.hasNext())
 		{
@@ -119,6 +113,26 @@ public class ElasticSearchImp implements SearchService
 		{
 			throw new ElasticsearchException(response.buildFailureMessage());
 		}
+	}
+
+	@Override
+	public void deleteDocumentsByType(String documentType)
+	{
+		LOG.info("Going to delete all documents of type [" + documentType + "]");
+
+		DeleteByQueryResponse deleteResponse = client.prepareDeleteByQuery(indexName)
+				.setQuery(new TermQueryBuilder("_type", documentType)).execute().actionGet();
+
+		if (deleteResponse != null)
+		{
+			IndexDeleteByQueryResponse idbqr = deleteResponse.getIndex(indexName);
+			if ((idbqr != null) && (idbqr.getFailedShards() > 0))
+			{
+				throw new ElasticsearchException("Delete failed. Returned headers:" + idbqr.getHeaders());
+			}
+		}
+
+		LOG.info("Delete done.");
 	}
 
 	@Override
@@ -238,7 +252,6 @@ public class ElasticSearchImp implements SearchService
 
 	private Iterator<BulkRequestBuilder> buildIndexRequest(final Repository repository)
 	{
-		final Date indexDataTime = new Date();
 		return new Iterator<BulkRequestBuilder>()
 		{
 			private final long rows = RepositoryUtils.count(repository);
@@ -265,21 +278,11 @@ public class ElasticSearchImp implements SearchService
 					{
 						doc.put(attrName, entity.get(attrName));
 					}
-					doc.put(DEFAULT_FREQUENCY_FIELD, Integer.valueOf(1));
-					doc.put(DEFAULT_ORIGINAL_FIELD, true);
-					doc.put(DEFAULT_DATE_FIELD, indexDataTime);
-					String documentType = entity.getString(DEFAULT_CODESYSTEM_FIELD);
-					if (documentType != null)
-					{
-						IndexRequestBuilder indexRequestBuilder = client.prepareIndex(indexName, documentType);
-						indexRequestBuilder.setSource(doc);
-						bulkRequest.add(indexRequestBuilder);
-						if ((row + 1) % 100 == 0) LOG.info("Added [" + (row + 1) + "] documents");
-					}
-					else
-					{
-						LOG.info("Failed to create index request for document : " + entity);
-					}
+
+					IndexRequestBuilder indexRequestBuilder = client.prepareIndex(indexName, repository.getName());
+					indexRequestBuilder.setSource(doc);
+					bulkRequest.add(indexRequestBuilder);
+					if ((row + 1) % 100 == 0) LOG.info("Added [" + (row + 1) + "] documents");
 				}
 				return bulkRequest;
 			}
@@ -327,5 +330,13 @@ public class ElasticSearchImp implements SearchService
 		data.put(DEFAULT_ORIGINAL_FIELD, false);
 		data.put(DEFAULT_DATE_FIELD, new Date());
 		return data;
+	}
+
+	@Override
+	public void indexCodeSystem(Entity entity)
+	{
+		Map<String, Object> data = new HashMap<String, Object>();
+		data.put(ElasticSearchImp.DEFAULT_NAME_FIELD, entity.getString(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD));
+		indexDocument(data);
 	}
 }

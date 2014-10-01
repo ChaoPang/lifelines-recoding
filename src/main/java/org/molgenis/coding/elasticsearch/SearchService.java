@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.elasticsearch.search.sort.SortOrder;
+import org.molgenis.data.Entity;
 import org.molgenis.data.Repository;
 
 public interface SearchService
@@ -24,4 +25,8 @@ public interface SearchService
 	public List<Hit> search(String documentType, String query, String field, String sortField, SortOrder sortOrder);
 
 	public boolean deleteDocumentById(String documentId, String documentType);
+
+	public void deleteDocumentsByType(String documentType);
+
+	public void indexCodeSystem(Entity entity);
 }

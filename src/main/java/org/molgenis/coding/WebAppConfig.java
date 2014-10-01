@@ -2,8 +2,12 @@ package org.molgenis.coding;
 
 import java.util.List;
 
+import org.molgenis.coding.backup.BackupCodesInState;
+import org.molgenis.coding.elasticsearch.CodingState;
+import org.molgenis.coding.elasticsearch.SearchService;
 import org.molgenis.coding.ngram.NGramService;
 import org.molgenis.coding.util.DutchNGramAlgorithm;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
@@ -11,6 +15,9 @@ import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.http.converter.ResourceHttpMessageConverter;
 import org.springframework.http.converter.json.MappingJacksonHttpMessageConverter;
 import org.springframework.http.converter.xml.Jaxb2RootElementHttpMessageConverter;
+import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.multipart.MultipartResolver;
 import org.springframework.web.multipart.support.StandardServletMultipartResolver;
 import org.springframework.web.servlet.ViewResolver;
@@ -23,9 +30,20 @@ import org.springframework.web.servlet.view.freemarker.FreeMarkerViewResolver;
 @SuppressWarnings("deprecation")
 @Configuration
 @EnableWebMvc
+@EnableAsync
+@EnableScheduling
 @ComponentScan("org.molgenis.coding")
 public class WebAppConfig extends WebMvcConfigurerAdapter
 {
+	@Autowired
+	private CodingState codingState;
+
+	@Autowired
+	private SearchService elasticSearchImp;
+
+	@Autowired
+	private BackupCodesInState backupCodesInState;
+
 	@Override
 	public void addResourceHandlers(ResourceHandlerRegistry registry)
 	{
@@ -46,6 +64,18 @@ public class WebAppConfig extends WebMvcConfigurerAdapter
 	public MultipartResolver multipartResolver()
 	{
 		return new StandardServletMultipartResolver();
+	}
+
+	@Bean
+	public CodingState codingState()
+	{
+		return new CodingState();
+	}
+
+	@Bean
+	public BackupCodesInState backupCodesInState()
+	{
+		return new BackupCodesInState(elasticSearchImp, codingState);
 	}
 
 	/**
@@ -86,5 +116,12 @@ public class WebAppConfig extends WebMvcConfigurerAdapter
 	public NGramService nGramService()
 	{
 		return new NGramService(dutchNGramAlgorithm());
+	}
+
+	@Scheduled(cron = "0 0 4 * * ?")
+	// @Scheduled(fixedDelay = 10000)
+	public void indexUnfinishedResult()
+	{
+		backupCodesInState.index();
 	}
 }

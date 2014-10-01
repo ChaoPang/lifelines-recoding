@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.search.sort.SortOrder;
 import org.molgenis.coding.elasticsearch.ElasticSearchImp;
 import org.molgenis.coding.elasticsearch.Hit;
@@ -55,8 +56,11 @@ public class ViewCodesController
 	String codeSystem) throws IOException
 	{
 		Map<String, Object> results = new HashMap<String, Object>();
-		results.put("results",
-				elasticSearchImp.search(codeSystem, null, null, ElasticSearchImp.DEFAULT_DATE_FIELD, SortOrder.DESC));
+		if (!StringUtils.isEmpty(codeSystem))
+		{
+			results.put("results", elasticSearchImp.search(codeSystem, null, null, ElasticSearchImp.DEFAULT_DATE_FIELD,
+					SortOrder.DESC));
+		}
 		return results;
 	}
 

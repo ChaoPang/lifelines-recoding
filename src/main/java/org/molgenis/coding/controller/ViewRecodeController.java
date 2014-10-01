@@ -31,6 +31,8 @@ import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
+import org.molgenis.coding.backup.BackupCodesInState;
+import org.molgenis.coding.elasticsearch.CodingState;
 import org.molgenis.coding.elasticsearch.ElasticSearchImp;
 import org.molgenis.coding.elasticsearch.Hit;
 import org.molgenis.coding.elasticsearch.SearchService;
@@ -62,34 +64,39 @@ import org.springframework.web.multipart.MultipartFile;
 public class ViewRecodeController
 {
 	private boolean isRecoding = false;
-	private Integer THRESHOLD = 80;
-	private String selectedCodeSystem = null;
+
 	private final static String VIEW_NAME = "view-recode-report";
 	private final static String UNKNOWN_CODE = "99999";
 	private final static String UNKNOWN_CODE_NAME = "Unknown";
+
 	private final SearchService elasticSearchImp;
 	private final NGramService nGramService;
+	private final CodingState codingState;
+	private final BackupCodesInState backupCodesInState;
+
 	private final static List<String> ALLOWED_COLUMNS = Arrays.asList("identifier", "name");
 	private final static Logger logger = Logger.getLogger(ViewRecodeController.class);
-	private final Map<String, RecodeResponse> mappedActivities = new HashMap<String, RecodeResponse>();
-	private final Map<String, RecodeResponse> rawActivities = new HashMap<String, RecodeResponse>();
-	private final List<String> maxNumColumns = new ArrayList<String>();
-	private final Set<String> invalidIndividuals = new HashSet<String>();
 
 	@Autowired
-	public ViewRecodeController(SearchService elasticSearchImp, NGramService nGramService)
+	public ViewRecodeController(SearchService elasticSearchImp, NGramService nGramService, CodingState codingState,
+			BackupCodesInState backupCodesInState)
 	{
 		if (elasticSearchImp == null) throw new IllegalArgumentException("ElasticSearch is null");
 		if (nGramService == null) throw new IllegalArgumentException("NGramService is null");
+		if (codingState == null) throw new IllegalArgumentException("CodingState is null");
+		if (backupCodesInState == null) throw new IllegalArgumentException("BackupCodesInState is null");
 		this.elasticSearchImp = elasticSearchImp;
 		this.nGramService = nGramService;
+		this.codingState = codingState;
+		this.backupCodesInState = backupCodesInState;
+
 	}
 
 	@RequestMapping(method = RequestMethod.GET)
 	public String defaultView(Model model)
 	{
-		model.addAttribute("selectedCodeSystem", selectedCodeSystem);
-		model.addAttribute("threshold", THRESHOLD);
+		model.addAttribute("selectedCodeSystem", codingState.getSelectedCodeSystem());
+		model.addAttribute("threshold", codingState.getThreshold());
 		model.addAttribute("hidForm", isRecoding);
 		model.addAttribute("viewId", VIEW_NAME);
 		return VIEW_NAME;
@@ -98,15 +105,29 @@ public class ViewRecodeController
 	@RequestMapping(value = "/finish", method = RequestMethod.GET)
 	public String finishedRecoding(Model model)
 	{
-		if (rawActivities.size() == 0)
+		if (codingState.getRawActivities().size() == 0)
 		{
 			isRecoding = false;
-			mappedActivities.clear();
-			rawActivities.clear();
-			maxNumColumns.clear();
-			invalidIndividuals.clear();
+			codingState.clearState();
 		}
 		return "redirect:/recode";
+	}
+
+	@RequestMapping(value = "/recovery", method = RequestMethod.GET, produces = APPLICATION_JSON_VALUE)
+	@ResponseBody
+	public Map<String, Object> recovery()
+	{
+		isRecoding = true;
+		return backupCodesInState.recovery();
+	}
+
+	@RequestMapping(value = "/check", method = RequestMethod.GET, produces = APPLICATION_JSON_VALUE)
+	@ResponseBody
+	public Map<String, Object> checkBackUp(Model model)
+	{
+		Map<String, Object> results = new HashMap<String, Object>();
+		results.put("backup", backupCodesInState.backupExisits());
+		return results;
 	}
 
 	@RequestMapping(value = "/retrieve", method = RequestMethod.GET, produces = APPLICATION_JSON_VALUE)
@@ -114,8 +135,8 @@ public class ViewRecodeController
 	public Map<String, Object> retrieveReport()
 	{
 		Map<String, Object> results = new HashMap<String, Object>();
-		List<RecodeResponse> listOfMapped = new ArrayList<RecodeResponse>(mappedActivities.values());
-		List<RecodeResponse> listOfUnMapped = new ArrayList<RecodeResponse>(rawActivities.values());
+		List<RecodeResponse> listOfMapped = new ArrayList<RecodeResponse>(codingState.getMappedActivities().values());
+		List<RecodeResponse> listOfUnMapped = new ArrayList<RecodeResponse>(codingState.getRawActivities().values());
 
 		Collections.sort(listOfMapped);
 		Collections.sort(listOfUnMapped);
@@ -133,13 +154,13 @@ public class ViewRecodeController
 		Map<String, Object> results = new HashMap<String, Object>();
 
 		int matchedTotal = 0;
-		for (RecodeResponse recodeResponse : mappedActivities.values())
+		for (RecodeResponse recodeResponse : codingState.getMappedActivities().values())
 		{
 			matchedTotal += recodeResponse.getIdentifiers().size();
 		}
 
 		int unmatchedTotal = 0;
-		for (RecodeResponse recodeResponse : rawActivities.values())
+		for (RecodeResponse recodeResponse : codingState.getRawActivities().values())
 		{
 			unmatchedTotal += recodeResponse.getIdentifiers().size();
 		}
@@ -197,13 +218,13 @@ public class ViewRecodeController
 								ElasticSearchImp.addDefaultFields(translateDataToMap(data, queryString)), documentType);
 					}
 
-					for (String activityName : new HashSet<String>(rawActivities.keySet()))
+					for (String activityName : new HashSet<String>(codingState.getRawActivities().keySet()))
 					{
 						List<Hit> searchHits = elasticSearchImp.search(documentType, activityName, null);
 						nGramService.calculateNGramSimilarity(activityName, "name", searchHits);
 						for (Hit hit : searchHits)
 						{
-							if (hit.getScore().intValue() >= THRESHOLD)
+							if (hit.getScore().intValue() >= codingState.getThreshold())
 							{
 								// Add/Remove the items to the matched
 								// /unmatched
@@ -211,14 +232,16 @@ public class ViewRecodeController
 								// matching scores have improved due to the
 								// manual
 								// curation
-								if (!mappedActivities.containsKey(activityName))
+								if (!codingState.getMappedActivities().containsKey(activityName))
 								{
-									mappedActivities.put(activityName, rawActivities.get(activityName));
-									mappedActivities.get(activityName).setHit(new Hit(hit.getDocumentId(), null, data));
-									mappedActivities.get(activityName).getHit().setScore(score);
-									mappedActivities.get(activityName).getIdentifiers()
-											.putAll(rawActivities.get(activityName).getIdentifiers());
-									rawActivities.remove(activityName);
+									codingState.getMappedActivities().put(activityName,
+											codingState.getRawActivities().get(activityName));
+									codingState.getMappedActivities().get(activityName)
+											.setHit(new Hit(hit.getDocumentId(), null, data));
+									codingState.getMappedActivities().get(activityName).getHit().setScore(score);
+									codingState.getMappedActivities().get(activityName).getIdentifiers()
+											.putAll(codingState.getRawActivities().get(activityName).getIdentifiers());
+									codingState.getRawActivities().remove(activityName);
 									break;
 								}
 							}
@@ -228,18 +251,20 @@ public class ViewRecodeController
 				else
 				{
 					// Only code the this query
-					if (!mappedActivities.containsKey(queryString) && rawActivities.containsKey(queryString))
+					if (!codingState.getMappedActivities().containsKey(queryString)
+							&& codingState.getRawActivities().containsKey(queryString))
 					{
-						mappedActivities.put(queryString, rawActivities.get(queryString));
-						mappedActivities.get(queryString).setHit(new Hit(documentId, null, data));
-						mappedActivities.get(queryString).getHit().setScore(score);
-						mappedActivities.get(queryString).getIdentifiers()
-								.putAll(rawActivities.get(queryString).getIdentifiers());
-						rawActivities.remove(queryString);
+						codingState.getMappedActivities().put(queryString,
+								codingState.getRawActivities().get(queryString));
+						codingState.getMappedActivities().get(queryString).setHit(new Hit(documentId, null, data));
+						codingState.getMappedActivities().get(queryString).getHit().setScore(score);
+						codingState.getMappedActivities().get(queryString).getIdentifiers()
+								.putAll(codingState.getRawActivities().get(queryString).getIdentifiers());
+						codingState.getRawActivities().remove(queryString);
 					}
 				}
-				mappedActivities.get(queryString).setFinalSelection(true);
-				mappedActivities.get(queryString).setAddedDate(new Date());
+				codingState.getMappedActivities().get(queryString).setFinalSelection(true);
+				codingState.getMappedActivities().get(queryString).setAddedDate(new Date());
 			}
 		}
 	}
@@ -266,17 +291,18 @@ public class ViewRecodeController
 			}
 
 			// Only code this query
-			if (!mappedActivities.containsKey(queryString) && rawActivities.containsKey(queryString))
+			if (!codingState.getMappedActivities().containsKey(queryString)
+					&& codingState.getRawActivities().containsKey(queryString))
 			{
-				mappedActivities.put(queryString, rawActivities.get(queryString));
-				mappedActivities.get(queryString).setHit(
-						new Hit(hits.get(0).getDocumentId(), null, hits.get(0).getColumnValueMap()));
-				mappedActivities.get(queryString).getHit().setScore((float) 0);
-				mappedActivities.get(queryString).getIdentifiers()
-						.putAll(rawActivities.get(queryString).getIdentifiers());
-				mappedActivities.get(queryString).setFinalSelection(true);
-				mappedActivities.get(queryString).setAddedDate(new Date());
-				rawActivities.remove(queryString);
+				codingState.getMappedActivities().put(queryString, codingState.getRawActivities().get(queryString));
+				codingState.getMappedActivities().get(queryString)
+						.setHit(new Hit(hits.get(0).getDocumentId(), null, hits.get(0).getColumnValueMap()));
+				codingState.getMappedActivities().get(queryString).getHit().setScore((float) 0);
+				codingState.getMappedActivities().get(queryString).getIdentifiers()
+						.putAll(codingState.getRawActivities().get(queryString).getIdentifiers());
+				codingState.getMappedActivities().get(queryString).setFinalSelection(true);
+				codingState.getMappedActivities().get(queryString).setAddedDate(new Date());
+				codingState.getRawActivities().remove(queryString);
 			}
 		}
 	}
@@ -290,16 +316,16 @@ public class ViewRecodeController
 		{
 			String queryString = request.get("query").toString();
 			// Only code the this query
-			if (mappedActivities.containsKey(queryString))
+			if (codingState.getMappedActivities().containsKey(queryString))
 			{
-				rawActivities.put(queryString, mappedActivities.get(queryString));
-				rawActivities.get(queryString).setFinalSelection(false);
-				List<Hit> searchHits = elasticSearchImp.search(selectedCodeSystem, queryString, null);
+				codingState.getRawActivities().put(queryString, codingState.getMappedActivities().get(queryString));
+				codingState.getRawActivities().get(queryString).setFinalSelection(false);
+				List<Hit> searchHits = elasticSearchImp.search(codingState.getSelectedCodeSystem(), queryString, null);
 				nGramService.calculateNGramSimilarity(queryString, "name", searchHits);
-				if (searchHits.size() > 0) mappedActivities.get(queryString).setHit(searchHits.get(0));
-				else mappedActivities.get(queryString).setHit(null);
+				if (searchHits.size() > 0) codingState.getMappedActivities().get(queryString).setHit(searchHits.get(0));
+				else codingState.getMappedActivities().get(queryString).setHit(null);
 
-				mappedActivities.remove(queryString);
+				codingState.getMappedActivities().remove(queryString);
 			}
 		}
 	}
@@ -308,47 +334,47 @@ public class ViewRecodeController
 	public String threshold(@RequestParam("threshold")
 	String threshold, Model model)
 	{
-		Integer previousThreshold = THRESHOLD;
+		Integer previousThreshold = codingState.getThreshold();
 		try
 		{
-			THRESHOLD = Integer.parseInt(threshold);
+			codingState.setThreshold(Integer.parseInt(threshold));
 		}
 		catch (Exception e)
 		{
-			THRESHOLD = previousThreshold;
+			codingState.setThreshold(previousThreshold);
 		}
 
 		// New threshold is smaller than the previous one, some of the unmatched
 		// items should be moved to the matched category
-		if (THRESHOLD < previousThreshold)
+		if (codingState.getThreshold() < previousThreshold)
 		{
-			Set<String> keys = new HashSet<String>(rawActivities.keySet());
+			Set<String> keys = new HashSet<String>(codingState.getRawActivities().keySet());
 			for (String activityName : keys)
 			{
-				RecodeResponse recodeResponse = rawActivities.get(activityName);
-				if (recodeResponse.getHit().getScore() >= THRESHOLD)
+				RecodeResponse recodeResponse = codingState.getRawActivities().get(activityName);
+				if (recodeResponse.getHit().getScore() >= codingState.getThreshold())
 				{
-					if (!mappedActivities.containsKey(activityName))
+					if (!codingState.getMappedActivities().containsKey(activityName))
 					{
-						mappedActivities.put(activityName, recodeResponse);
-						rawActivities.remove(activityName);
+						codingState.getMappedActivities().put(activityName, recodeResponse);
+						codingState.getRawActivities().remove(activityName);
 					}
 				}
 			}
 		}
-		else if (THRESHOLD > previousThreshold)
+		else if (codingState.getThreshold() > previousThreshold)
 		{
-			Set<String> keys = new HashSet<String>(mappedActivities.keySet());
+			Set<String> keys = new HashSet<String>(codingState.getMappedActivities().keySet());
 			for (String activityName : keys)
 			{
-				RecodeResponse recodeResponse = mappedActivities.get(activityName);
-				if (recodeResponse.getHit().getScore() < THRESHOLD)
+				RecodeResponse recodeResponse = codingState.getMappedActivities().get(activityName);
+				if (recodeResponse.getHit().getScore() < codingState.getThreshold())
 				{
-					if (!rawActivities.containsKey(activityName)
-							&& !mappedActivities.get(activityName).isFinalSelection())
+					if (!codingState.getRawActivities().containsKey(activityName)
+							&& !codingState.getMappedActivities().get(activityName).isFinalSelection())
 					{
-						rawActivities.put(activityName, recodeResponse);
-						mappedActivities.remove(activityName);
+						codingState.getRawActivities().put(activityName, recodeResponse);
+						codingState.getMappedActivities().remove(activityName);
 					}
 				}
 			}
@@ -395,11 +421,11 @@ public class ViewRecodeController
 			CsvWriter summaryCsvWritier = new CsvWriter(fileForSummaryTable);
 			filePaths.add(fileForSummaryTable.getAbsolutePath());
 
-			summaryCsvWritier.writeAttributeNames(maxNumColumns);
+			summaryCsvWritier.writeAttributeNames(codingState.getMaxNumColumns());
 
 			Map<Integer, CsvWriter> sheetMap = new HashMap<Integer, CsvWriter>();
 
-			for (int index = 1; index < maxNumColumns.size(); index++)
+			for (int index = 1; index < codingState.getMaxNumColumns().size(); index++)
 			{
 				File file = new File(property + "recoding-download-" + dateFormat.format(new Date()) + "." + index
 						+ ".csv");
@@ -408,7 +434,8 @@ public class ViewRecodeController
 				sheetMap.get(index).writeAttributeNames(columnHeaders);
 			}
 			Map<String, MapEntity> entityMap = new HashMap<String, MapEntity>();
-			for (Entry<String, RecodeResponse> entry : mappedActivities.entrySet())
+
+			for (Entry<String, RecodeResponse> entry : codingState.getMappedActivities().entrySet())
 			{
 				String activityName = entry.getKey();
 				RecodeResponse recodeResponse = entry.getValue();
@@ -435,14 +462,14 @@ public class ViewRecodeController
 						entity.set("similarity", recodeResponse.getHit().getScore());
 						sheetMap.get(columnIndex).add(entity);
 
-						entityMap.get(identifier).set(maxNumColumns.get(columnIndex),
+						entityMap.get(identifier).set(codingState.getMaxNumColumns().get(columnIndex),
 								columnValueMap.get(ElasticSearchImp.DEFAULT_CODE_FIELD));
 					}
 				}
 			}
 
 			summaryCsvWritier.add(entityMap.values());
-			for (String identifier : invalidIndividuals)
+			for (String identifier : codingState.getInvalidIndividuals())
 			{
 				MapEntity entity = new MapEntity();
 				entity.set("identifier", identifier);
@@ -503,7 +530,7 @@ public class ViewRecodeController
 		CsvRepository csvRepository = null;
 		try
 		{
-			selectedCodeSystem = codeSystem;
+			codingState.setSelectedCodeSystem(codeSystem);
 
 			File serverFile = createFileOnServer(file);
 
@@ -518,10 +545,7 @@ public class ViewRecodeController
 					// individuals
 					Iterator<Entity> iterator = csvRepository.iterator();
 
-					for (AttributeMetaData attributeMetaData : csvRepository.getEntityMetaData().getAtomicAttributes())
-					{
-						maxNumColumns.add(attributeMetaData.getName());
-					}
+					codingState.addColumns(csvRepository.getEntityMetaData().getAttributes());
 
 					Date indexedDate = new Date();
 
@@ -529,57 +553,61 @@ public class ViewRecodeController
 					{
 						Entity entity = iterator.next();
 						String individualIdentifier = entity.getString("Identifier");
-						invalidIndividuals.add(individualIdentifier);
-						for (String columnName : maxNumColumns)
+						codingState.addInvalidIndividuals(individualIdentifier);
+
+						for (int columnIndex = 0; columnIndex < codingState.getMaxNumColumns().size(); columnIndex++)
 						{
+							String columnName = codingState.getMaxNumColumns().get(columnIndex);
+
 							if (columnName.equalsIgnoreCase("identifier")) continue;
 
 							if (columnName.toLowerCase().startsWith("name"))
 							{
 								String activityName = entity.getString(columnName);
-								Integer columnIndex = maxNumColumns.indexOf(columnName);
 
 								if (!StringUtils.isEmpty(individualIdentifier) && !StringUtils.isEmpty(activityName))
 								{
-									if (invalidIndividuals.contains(individualIdentifier)) invalidIndividuals
-											.remove(individualIdentifier);
+									codingState.removeInvalidIndividuals(individualIdentifier);
 
 									List<Hit> searchHits = elasticSearchImp.search(codeSystem, activityName, null);
 									nGramService.calculateNGramSimilarity(activityName, "name", searchHits);
 									for (Hit hit : searchHits)
 									{
-										if (hit.getScore().intValue() >= THRESHOLD)
+										if (hit.getScore().intValue() >= codingState.getThreshold())
 										{
-											if (!mappedActivities.containsKey(activityName))
+
+											if (!codingState.getMappedActivities().containsKey(activityName))
 											{
-												mappedActivities.put(activityName,
+												codingState.getMappedActivities().put(activityName,
 														new RecodeResponse(activityName, hit));
 											}
-											if (!mappedActivities.get(activityName).getIdentifiers()
+											if (!codingState.getMappedActivities().get(activityName).getIdentifiers()
 													.containsKey(individualIdentifier))
 											{
-												mappedActivities.get(activityName).getIdentifiers()
+												codingState.getMappedActivities().get(activityName).getIdentifiers()
 														.put(individualIdentifier, new HashSet<Integer>());
 											}
-											mappedActivities.get(activityName).getIdentifiers()
+											codingState.getMappedActivities().get(activityName).getIdentifiers()
 													.get(individualIdentifier).add(columnIndex);
-											mappedActivities.get(activityName).setAddedDate(indexedDate);
+											codingState.getMappedActivities().get(activityName)
+													.setAddedDate(indexedDate);
 										}
 										else
 										{
-											if (!rawActivities.containsKey(activityName))
+											if (!codingState.getRawActivities().containsKey(activityName))
 											{
-												rawActivities.put(activityName, new RecodeResponse(activityName, hit));
+												codingState.getRawActivities().put(activityName,
+														new RecodeResponse(activityName, hit));
 											}
-											if (!rawActivities.get(activityName).getIdentifiers()
+											if (!codingState.getRawActivities().get(activityName).getIdentifiers()
 													.containsKey(individualIdentifier))
 											{
-												rawActivities.get(activityName).getIdentifiers()
+												codingState.getRawActivities().get(activityName).getIdentifiers()
 														.put(individualIdentifier, new HashSet<Integer>());
 											}
-											rawActivities.get(activityName).getIdentifiers().get(individualIdentifier)
-													.add(columnIndex);
-											rawActivities.get(activityName).setAddedDate(indexedDate);
+											codingState.getRawActivities().get(activityName).getIdentifiers()
+													.get(individualIdentifier).add(columnIndex);
+											codingState.getRawActivities().get(activityName).setAddedDate(indexedDate);
 										}
 										break;
 									}
@@ -587,23 +615,13 @@ public class ViewRecodeController
 							}
 						}
 					}
-
 					isRecoding = true;
 				}
-				// else
-				// {
-				// model.addAttribute("message",
-				// "The columns are invalid. Please look at the example!");
-				// }
 			}
 		}
 		catch (Throwable e)
 		{
-			// model.addAttribute("message", e.getMessage());
-			rawActivities.clear();
-			mappedActivities.clear();
-			maxNumColumns.clear();
-			invalidIndividuals.clear();
+			codingState.clearState();
 		}
 		finally
 		{
