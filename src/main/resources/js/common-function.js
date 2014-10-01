@@ -109,10 +109,14 @@
 					$('<td />').append(deleteButton).appendTo(row);
 					
 					deleteButton.click(function(){
-						molgenis.deleteCode(hit.documentId, hit.columnValueMap.codesystem, function(data){
-							if(data.success) $(row).remove();
-							molgenis.createAlert([data], data.success ? 'success' : 'error', container);
-						});
+						if(!hit.columnValueMap.original){
+							molgenis.deleteCode(hit.documentId, hit.columnValueMap.codesystem, function(data){
+								if(data.success) $(row).remove();
+								molgenis.createAlert([data], data.success ? 'success' : 'error', container);
+							});
+						}else{
+							molgenis.createAlert([{'message' : 'The code ' + hit.columnValueMap.code + ' ( <strong>' + hit.columnValueMap.name + '</strong> ) is original and cannot be removed!'}], 'warning', container);
+						}
 					});
 				});
 				$(container).empty().append(table);

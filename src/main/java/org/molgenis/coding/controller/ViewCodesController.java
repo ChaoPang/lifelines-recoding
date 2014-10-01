@@ -8,6 +8,7 @@ import java.util.Map;
 
 import org.elasticsearch.search.sort.SortOrder;
 import org.molgenis.coding.elasticsearch.ElasticSearchImp;
+import org.molgenis.coding.elasticsearch.Hit;
 import org.molgenis.coding.elasticsearch.SearchService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -69,13 +70,26 @@ public class ViewCodesController
 				&& request.containsKey(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD)
 				&& request.get(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD) != null)
 		{
-			boolean deleteDocumentById = elasticSearchImp.deleteDocumentById(request.get("documentId").toString(),
-					request.get(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD).toString());
-			results.put("success", deleteDocumentById);
-			results.put(
-					"message",
-					deleteDocumentById ? "Document : " + request.get("documentId") + " was removed" : "Failed to removev document : "
-							+ request.get("documentId"));
+			String documentId = request.get("documentId").toString();
+			String documentType = request.get(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD).toString();
+			Hit hit = elasticSearchImp.getDocumentById(documentId, documentType);
+
+			if (hit == null
+					|| !Boolean.parseBoolean(hit.getColumnValueMap().get(ElasticSearchImp.DEFAULT_ORIGINAL_FIELD)
+							.toString()))
+			{
+				boolean deleteDocumentById = elasticSearchImp.deleteDocumentById(documentId, documentType);
+				results.put("success", deleteDocumentById);
+				results.put(
+						"message",
+						deleteDocumentById ? "Document : " + request.get("documentId") + " was removed" : "Failed to removev document : "
+								+ request.get("documentId"));
+			}
+			else
+			{
+				results.put("success", false);
+				results.put("message", "Document " + request.get("documentId") + " is original and cannot be removed!");
+			}
 		}
 		else
 		{
