@@ -3,12 +3,10 @@ package org.molgenis.coding.controller;
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
 import org.apache.log4j.Logger;
-import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
 import org.molgenis.coding.elasticsearch.SearchService;
 import org.molgenis.data.AttributeMetaData;
 import org.molgenis.data.excel.ExcelRepository;
@@ -48,7 +46,7 @@ public class AddCodesController
 
 	@RequestMapping(value = "/upload", method = RequestMethod.POST, headers = "Content-Type=multipart/form-data")
 	public String uploadFileHandler(@RequestParam("file")
-	MultipartFile file, Model model) throws InvalidFormatException
+	MultipartFile file, Model model)
 	{
 		if (!file.isEmpty())
 		{
@@ -80,7 +78,7 @@ public class AddCodesController
 					}
 				}
 			}
-			catch (IOException e)
+			catch (Exception e)
 			{
 				model.addAttribute("message", e.getMessage());
 			}

@@ -91,6 +91,28 @@
 		});
 	};
 	
+	molgenis.retrieveAllCodes = function (codeSystem, container){
+		$.ajax({
+			type : 'GET',
+			url :  '/view/alldocs?codeSystem=' + codeSystem,
+			contentType : 'application/json',
+			success : function(data){
+				var table = $('<table />').addClass('table table-bordered');
+				table.append('<tr><th>Name</th><th>Code</th><th>Code system</th><th>Original</th><th>Frequency</th><th>date added</th><th>Delete</th></tr>');
+				$.each(data.results, function(index, hit){
+					var columnValueMap = hit.columnValueMap;
+					var row = $('<tr><td>' + columnValueMap.name + '</td><td>' + columnValueMap.code + 
+							'</td><td>' + columnValueMap.codesystem + '</td><td>' + columnValueMap.original + 
+								'</td><td>' + hit.frequency + '</td><td>' + hit.columnValueMap.date + '</td>/tr>');
+					var deleteButton = $('<span><i class="icon icon-trash"></i></span>').css('cursor', 'pointer');
+					$('<td />').append(deleteButton).appendTo(row);
+					table.append(row);
+				});
+				$(container).empty().append(table);
+			}
+		});
+	}
+	
 	molgenis.defaultAddCode = function(query, hit, callback){
 		var request = {
 			'data' : {

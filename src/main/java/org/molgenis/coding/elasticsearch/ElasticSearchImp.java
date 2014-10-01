@@ -24,6 +24,9 @@ import org.elasticsearch.action.update.UpdateResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.sort.FieldSortBuilder;
+import org.elasticsearch.search.sort.SortBuilders;
+import org.elasticsearch.search.sort.SortOrder;
 import org.molgenis.data.Entity;
 import org.molgenis.data.Repository;
 import org.molgenis.util.RepositoryUtils;
@@ -34,11 +37,11 @@ public class ElasticSearchImp implements SearchService
 {
 	private final String indexName;
 	private final Client client;
-	private static final String INDEX_TYPE = "coding";
 	private static final Logger LOG = Logger.getLogger(ElasticSearchImp.class);
 	private static final DutchStemmer dutchStemmer = new DutchStemmer();
-	public final static String DEFAULT_NAME_FIELD = "name";
-	public final static String DEFAULT_CODE_FIELD = "code";
+	public static final String INDEX_TYPE = "coding";
+	public static final String DEFAULT_NAME_FIELD = "name";
+	public static final String DEFAULT_CODE_FIELD = "code";
 	public static final String DEFAULT_FREQUENCY_FIELD = "frequency";
 	public static final String DEFAULT_ORIGINAL_FIELD = "original";
 	public static final String DEFAULT_CODESYSTEM_FIELD = "codesystem";
@@ -131,41 +134,37 @@ public class ElasticSearchImp implements SearchService
 	}
 
 	@Override
-	public List<Hit> getAllCodeSystems()
-	{
-		return getAllCodeSystems(INDEX_TYPE);
-	}
-
-	@Override
-	public List<Hit> getAllCodeSystems(String documentType)
-	{
-		SearchRequestBuilder searchRequestBuilder = client.prepareSearch(indexName);
-		searchRequestBuilder.setTypes(documentType);
-		searchRequestBuilder.setSize(Integer.MAX_VALUE);
-		return parseSearchResponse(searchRequestBuilder);
-	}
-
-	@Override
 	public List<Hit> search(String documentType, String query, String field)
 	{
-		SearchRequestBuilder searchRequestbuilder = client.prepareSearch(indexName);
-		if (documentType != null) searchRequestbuilder.setTypes(documentType);
+		return search(documentType, query, field, null, null);
+	}
 
-		StringBuilder queryStringBuilder = new StringBuilder();
-		String fuzzyQueryProcess = fuzzyQueryProcess(escapeValue(query));
-		if (field != null) queryStringBuilder.append(field).append(":(").append(fuzzyQueryProcess(escapeValue(query)))
-				.append(')');
-		else queryStringBuilder.append(fuzzyQueryProcess);
+	@Override
+	public List<Hit> search(String documentType, String query, String field, String sortField, SortOrder sortOrder)
+	{
+		SearchRequestBuilder searchRequestBuilder = client.prepareSearch(indexName);
+		searchRequestBuilder.setSize(Integer.MAX_VALUE);
 
-		searchRequestbuilder.setQuery(QueryBuilders.queryString(queryStringBuilder.toString()));
+		if (documentType != null) searchRequestBuilder.setTypes(documentType);
 
-		// SortOrder sortOrder = sortDirection == Direction.ASC ? SortOrder.ASC
-		// : SortOrder.DESC;
-		// FieldSortBuilder sortBuilder =
-		// SortBuilders.fieldSort(sortField).order(sortOrder).sortMode("min");
-		// searchRequestBuilder.addSort(sortBuilder);
+		if (query != null)
+		{
+			StringBuilder queryStringBuilder = new StringBuilder();
+			String fuzzyQueryProcess = fuzzyQueryProcess(escapeValue(query));
+			if (field != null) queryStringBuilder.append(field).append(":(")
+					.append(fuzzyQueryProcess(escapeValue(query))).append(')');
+			else queryStringBuilder.append(fuzzyQueryProcess);
 
-		return parseSearchResponse(searchRequestbuilder);
+			searchRequestBuilder.setQuery(QueryBuilders.queryString(queryStringBuilder.toString()));
+		}
+
+		if (sortField != null && sortOrder != null)
+		{
+			FieldSortBuilder sortBuilder = SortBuilders.fieldSort(sortField).order(sortOrder).sortMode("min");
+			searchRequestBuilder.addSort(sortBuilder);
+		}
+
+		return parseSearchResponse(searchRequestBuilder);
 	}
 
 	@Override
@@ -229,7 +228,7 @@ public class ElasticSearchImp implements SearchService
 
 	private Iterator<BulkRequestBuilder> buildIndexRequest(final Repository repository)
 	{
-		final String indexDataTime = DATE_FORMAT.format(new Date());
+		final Date indexDataTime = new Date();
 		return new Iterator<BulkRequestBuilder>()
 		{
 			private final long rows = RepositoryUtils.count(repository);
@@ -316,7 +315,7 @@ public class ElasticSearchImp implements SearchService
 	{
 		data.put(DEFAULT_FREQUENCY_FIELD, Integer.valueOf(1));
 		data.put(DEFAULT_ORIGINAL_FIELD, false);
-		data.put(DEFAULT_DATE_FIELD, DATE_FORMAT.format(new Date()));
+		data.put(DEFAULT_DATE_FIELD, new Date());
 		return data;
 	}
 }

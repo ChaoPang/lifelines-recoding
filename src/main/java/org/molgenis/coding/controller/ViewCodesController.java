@@ -6,6 +6,8 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.elasticsearch.search.sort.SortOrder;
+import org.molgenis.coding.elasticsearch.ElasticSearchImp;
 import org.molgenis.coding.elasticsearch.SearchService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -41,7 +43,7 @@ public class ViewCodesController
 	public Map<String, Object> getDocs() throws IOException
 	{
 		Map<String, Object> results = new HashMap<String, Object>();
-		results.put("results", elasticSearchImp.getAllCodeSystems());
+		results.put("results", elasticSearchImp.search(ElasticSearchImp.INDEX_TYPE, null, null));
 		return results;
 	}
 
@@ -51,7 +53,8 @@ public class ViewCodesController
 	String codeSystem) throws IOException
 	{
 		Map<String, Object> results = new HashMap<String, Object>();
-		results.put("results", elasticSearchImp.getAllCodeSystems(codeSystem));
+		results.put("results",
+				elasticSearchImp.search(codeSystem, null, null, ElasticSearchImp.DEFAULT_DATE_FIELD, SortOrder.DESC));
 		return results;
 	}
 }
