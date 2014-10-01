@@ -12,6 +12,7 @@ import org.molgenis.coding.elasticsearch.SearchService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -55,6 +56,32 @@ public class ViewCodesController
 		Map<String, Object> results = new HashMap<String, Object>();
 		results.put("results",
 				elasticSearchImp.search(codeSystem, null, null, ElasticSearchImp.DEFAULT_DATE_FIELD, SortOrder.DESC));
+		return results;
+	}
+
+	@RequestMapping(method = RequestMethod.POST, value = "/delete", consumes = APPLICATION_JSON_VALUE, produces = APPLICATION_JSON_VALUE)
+	@ResponseBody
+	public Map<String, Object> deleteCode(@RequestBody
+	Map<String, Object> request)
+	{
+		Map<String, Object> results = new HashMap<String, Object>();
+		if (request.containsKey("documentId") && request.get("documentId") != null
+				&& request.containsKey(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD)
+				&& request.get(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD) != null)
+		{
+			boolean deleteDocumentById = elasticSearchImp.deleteDocumentById(request.get("documentId").toString(),
+					request.get(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD).toString());
+			results.put("success", deleteDocumentById);
+			results.put(
+					"message",
+					deleteDocumentById ? "Document : " + request.get("documentId") + " was removed" : "Failed to removev document : "
+							+ request.get("documentId"));
+		}
+		else
+		{
+			results.put("success", false);
+			results.put("message", "Request does not contain required fields documentId and codesystem");
+		}
 		return results;
 	}
 }

@@ -22,4 +22,6 @@ public interface SearchService
 	public List<Hit> search(String documentType, String query, String field);
 
 	public List<Hit> search(String documentType, String query, String field, String sortField, SortOrder sortOrder);
+
+	public boolean deleteDocumentById(String documentId, String documentType);
 }

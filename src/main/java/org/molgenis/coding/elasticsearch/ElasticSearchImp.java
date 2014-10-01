@@ -15,6 +15,7 @@ import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRequest;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
+import org.elasticsearch.action.delete.DeleteResponse;
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexRequestBuilder;
 import org.elasticsearch.action.search.SearchRequestBuilder;
@@ -118,6 +119,15 @@ public class ElasticSearchImp implements SearchService
 		{
 			throw new ElasticsearchException(response.buildFailureMessage());
 		}
+	}
+
+	@Override
+	public boolean deleteDocumentById(String documentId, String documentType)
+	{
+		DeleteResponse response = client
+				.prepareDelete(indexName, documentType == null ? INDEX_TYPE : documentType, documentId).execute()
+				.actionGet();
+		return response.isFound();
 	}
 
 	@Override
