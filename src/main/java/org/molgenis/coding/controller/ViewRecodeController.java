@@ -162,6 +162,7 @@ public class ViewRecodeController
 			else
 			{
 				maxNumber = isMapped ? 100 : 10;
+				maxNumberOption = maxNumber + "";
 			}
 
 			results.put("results", values.subList(0, maxNumber <= values.size() ? maxNumber : values.size()));
