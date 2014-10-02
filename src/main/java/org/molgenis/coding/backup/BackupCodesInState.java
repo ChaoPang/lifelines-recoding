@@ -118,9 +118,11 @@ public class BackupCodesInState
 				.size() > 0;
 	}
 
-	public List<Hit> backupExisits()
+	public List<Hit> getBackups()
 	{
-		return elasticSearchImp.search(BACKUP_DOCUMENT_TYPE, null, null, ADDED_DATE_FIELD, SortOrder.DESC);
+		if (elasticSearchImp.search(BACKUP_DOCUMENT_TYPE, null, null).size() > 0) return elasticSearchImp.search(
+				BACKUP_DOCUMENT_TYPE, null, null, ADDED_DATE_FIELD, SortOrder.DESC);
+		else return Collections.emptyList();
 	}
 
 	public Map<String, Object> recovery(String codingJobName)

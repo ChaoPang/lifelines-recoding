@@ -33,7 +33,7 @@ public class ViewBackupController
 	public String defaultView(Model model)
 	{
 		model.addAttribute("viewId", VIEW_NAME);
-		model.addAttribute("backupExists", backupCodesInState.backupExisits().size() > 0);
+		model.addAttribute("backupExists", backupCodesInState.getBackups().size() > 0);
 		return VIEW_NAME;
 
 	}
@@ -43,7 +43,7 @@ public class ViewBackupController
 	public Map<String, Object> backup()
 	{
 		Map<String, Object> results = new HashMap<String, Object>();
-		results.put("results", backupCodesInState.backupExisits());
+		results.put("results", backupCodesInState.getBackups());
 		return results;
 	}
 }

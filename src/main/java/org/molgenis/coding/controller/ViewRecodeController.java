@@ -129,9 +129,8 @@ public class ViewRecodeController
 	public Map<String, Object> checkBackUp(Model model)
 	{
 		Map<String, Object> results = new HashMap<String, Object>();
-		List<Hit> backupExisits = backupCodesInState.backupExisits();
-		results.put("backupExists", backupExisits.size() > 0);
-		results.put("backup", backupExisits);
+		results.put("backupExists", backupCodesInState.getBackups().size() > 0);
+		results.put("backup", backupCodesInState.getBackups());
 		return results;
 	}
 
