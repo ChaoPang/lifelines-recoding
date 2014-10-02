@@ -142,9 +142,9 @@ public class BackupCodesInState
 						for (Entry<?, ?> entry : ((Map<?, ?>) identifiersObject).entrySet())
 						{
 							Set<Integer> columnIndices = new HashSet<Integer>();
-							if (entry.getValue() instanceof Set<?>)
+							if (entry.getValue() instanceof List<?>)
 							{
-								for (Object columnIndex : (Set<?>) entry.getValue())
+								for (Object columnIndex : (List<?>) entry.getValue())
 								{
 									columnIndices.add(Integer.parseInt(columnIndex.toString()));
 								}

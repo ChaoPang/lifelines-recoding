@@ -114,6 +114,13 @@ public class ViewRecodeController
 		return "redirect:/recode";
 	}
 
+	@RequestMapping(value = "/backup", method = RequestMethod.GET)
+	public String backup(Model model)
+	{
+		backupCodesInState.index();
+		return "redirect:/recode";
+	}
+
 	@RequestMapping(value = "/recovery", method = RequestMethod.GET, produces = APPLICATION_JSON_VALUE)
 	@ResponseBody
 	public Map<String, Object> recovery()
@@ -549,46 +556,26 @@ public class ViewRecodeController
 								if (!StringUtils.isEmpty(individualIdentifier) && !StringUtils.isEmpty(activityName))
 								{
 									codingState.removeInvalidIndividuals(individualIdentifier);
-
 									List<Hit> searchHits = elasticSearchImp.search(codeSystem, activityName, null);
 									nGramService.calculateNGramSimilarity(activityName, "name", searchHits);
 									for (Hit hit : searchHits)
 									{
-										if (hit.getScore().intValue() >= codingState.getThreshold())
+										Map<String, RecodeResponse> activities = hit.getScore().intValue() >= codingState
+												.getThreshold() ? codingState.getMappedActivities() : codingState
+												.getRawActivities();
+										if (!activities.containsKey(activityName))
 										{
-											if (!codingState.getMappedActivities().containsKey(activityName))
-											{
-												codingState.getMappedActivities().put(activityName,
-														new RecodeResponse(activityName, hit));
-											}
-											if (!codingState.getMappedActivities().get(activityName).getIdentifiers()
-													.containsKey(individualIdentifier))
-											{
-												codingState.getMappedActivities().get(activityName).getIdentifiers()
-														.put(individualIdentifier, new HashSet<Integer>());
-											}
-											codingState.getMappedActivities().get(activityName).getIdentifiers()
-													.get(individualIdentifier).add(columnIndex);
-											codingState.getMappedActivities().get(activityName)
-													.setAddedDate(indexedDate);
+											activities.put(activityName, new RecodeResponse(activityName, hit));
 										}
-										else
+										if (!activities.get(activityName).getIdentifiers()
+												.containsKey(individualIdentifier))
 										{
-											if (!codingState.getRawActivities().containsKey(activityName))
-											{
-												codingState.getRawActivities().put(activityName,
-														new RecodeResponse(activityName, hit));
-											}
-											if (!codingState.getRawActivities().get(activityName).getIdentifiers()
-													.containsKey(individualIdentifier))
-											{
-												codingState.getRawActivities().get(activityName).getIdentifiers()
-														.put(individualIdentifier, new HashSet<Integer>());
-											}
-											codingState.getRawActivities().get(activityName).getIdentifiers()
-													.get(individualIdentifier).add(columnIndex);
-											codingState.getRawActivities().get(activityName).setAddedDate(indexedDate);
+											activities.get(activityName).getIdentifiers()
+													.put(individualIdentifier, new HashSet<Integer>());
 										}
+										activities.get(activityName).getIdentifiers().get(individualIdentifier)
+												.add(columnIndex);
+										activities.get(activityName).setAddedDate(indexedDate);
 										break;
 									}
 								}

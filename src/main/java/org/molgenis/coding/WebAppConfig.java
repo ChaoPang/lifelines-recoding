@@ -118,8 +118,7 @@ public class WebAppConfig extends WebMvcConfigurerAdapter
 		return new NGramService(dutchNGramAlgorithm());
 	}
 
-	@Scheduled(cron = "0 45 12 * * ?")
-	// @Scheduled(fixedDelay = 10000)
+	@Scheduled(cron = "0 0 4 * * ?")
 	public void indexUnfinishedResult()
 	{
 		backupCodesInState.index();

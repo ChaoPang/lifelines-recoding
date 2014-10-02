@@ -126,6 +126,7 @@
 			<div class="row-fluid">
 				<button id="download-button" class="btn btn-inverse" type="button">Download</button>
 				<button id="finished-button" class="btn" type="button">Finish recoding</button>
+				<button id="backup-button" class="btn" type="button" style="float:right;">Backup data	</button>
 			</div>		
 		</div>
 	</div>
@@ -158,6 +159,12 @@
 			$('form:first').attr({
 				'method' : 'POST',
 				'action' : '/recode/threshold/'
+			}).submit();
+		});
+		$('#backup-button').click(function(){
+			$('form:first').attr({
+				'method' : 'get',
+				'action' : '/recode/backup/'
 			}).submit();
 		});
 	});
