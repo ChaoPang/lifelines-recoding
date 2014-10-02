@@ -168,7 +168,7 @@
 					var recoveyButton = $('<button type="button" class="btn">Recover</button>');
 					var confirmButton = $('<button type="button" class="btn btn-primary" style="float:right;">Confirm</button>');
 					var cancelButton = $('<button type="button" class="btn">Cancel</button>');
-					var row = $('<tr />').append('<td>' + hit.columnValueMap.name +'</td>').append('<td>' + hit.columnValueMap.codesystem +'</td>').append('<td>' + hit.columnValueMap.addedDate +'</td>').appendTo(table);
+					var row = $('<tr />').append('<td>' + hit.columnValueMap.name +'</td>').append('<td>' + hit.columnValueMap.codesystem +'</td>').append('<td>' + new Date(hit.columnValueMap.addedDate) +'</td>').appendTo(table);
 					$('<td />').append(recoveyButton).appendTo(row);
 					recoveyButton.click(function(){
 						recoveyButton.parents('td:eq(0)').append(confirmButton).append(cancelButton);
