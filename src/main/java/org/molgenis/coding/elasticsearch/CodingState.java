@@ -19,6 +19,7 @@ public class CodingState
 
 	private Integer threshold = 80;
 	private String selectedCodeSystem = null;
+	private String selectedCodingJob = null;
 
 	public Integer getThreshold()
 	{
@@ -84,5 +85,15 @@ public class CodingState
 		mappedActivities.clear();
 		maxNumColumns.clear();
 		invalidIndividuals.clear();
+	}
+
+	public String getSelectedCodingJob()
+	{
+		return selectedCodingJob;
+	}
+
+	public void setSelectedCodingJob(String selectedCodingJob)
+	{
+		this.selectedCodingJob = selectedCodingJob;
 	}
 }

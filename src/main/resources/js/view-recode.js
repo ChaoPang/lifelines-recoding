@@ -68,6 +68,7 @@
 			$('<div />').addClass('span4').append(showResultButton).appendTo(parentElement);
 			if(matchingResults.length > 0){
 				showResultButton.click(function(){
+					var displaySizeSelect = $('<select><option>10</option><option>100</option><option>500</option><option>All</option></select>');
 					if(matched){
 						$(resultContainer).removeClass('offset3 span6').addClass('offset2 span8');
 					}else{
@@ -149,8 +150,9 @@
 						}
 						row.appendTo(table);
 					});
-					var layoutDiv = $('<div />').addClass('row-fluid').append('<br><div class="large-text"><strong><center>' + (matched ? 'Matched results' : 'Unmatched results') + '</center></strong></div><br>').append(table);
-					resultContainer.empty().append(layoutDiv);
+					var selectDiv = $('<div />').addClass('row-fluid').append('Display size<br>').append(displaySizeSelect);
+					var layoutDiv = $('<div />').addClass('row-fluid').append('<div class="large-text"><strong><center>' + (matched ? 'Matched results' : 'Unmatched results') + '</center></strong></div><br>').append(table);
+					resultContainer.empty().append(selectDiv).append(layoutDiv);
 				});	
 			}
 		}

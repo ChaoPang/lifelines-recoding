@@ -17,7 +17,6 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -32,6 +31,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
 import org.molgenis.coding.backup.BackupCodesInState;
+import org.molgenis.coding.backup.CodingDataRepository;
 import org.molgenis.coding.elasticsearch.CodingState;
 import org.molgenis.coding.elasticsearch.ElasticSearchImp;
 import org.molgenis.coding.elasticsearch.Hit;
@@ -39,7 +39,6 @@ import org.molgenis.coding.elasticsearch.SearchService;
 import org.molgenis.coding.ngram.NGramService;
 import org.molgenis.coding.util.RecodeResponse;
 import org.molgenis.data.AttributeMetaData;
-import org.molgenis.data.Entity;
 import org.molgenis.data.EntityMetaData;
 import org.molgenis.data.csv.CsvRepository;
 import org.molgenis.data.csv.CsvWriter;
@@ -132,11 +131,80 @@ public class ViewRecodeController
 
 	@RequestMapping(value = "/retrieve", method = RequestMethod.GET, produces = APPLICATION_JSON_VALUE)
 	@ResponseBody
-	public Map<String, Object> retrieveReport(@RequestParam(required = false, value = "displayNumberMatched")
+	public Map<String, Object> retrieve(@RequestParam(required = false, value = "displayNumberMatched")
 	Integer maxNumberMatched, @RequestParam(required = false, value = "displayNumberMatched")
 	Integer maxNumberUnMatched)
 	{
+		if (!StringUtils.isEmpty(codingState.getSelectedCodingJob()))
+		{
+			for (Hit hit : elasticSearchImp.search(codingState.getSelectedCodingJob(), null, null))
+			{
+				Map<String, Object> columnValueMap = hit.getColumnValueMap();
+
+				if (columnValueMap.containsKey(CodingDataRepository.DOCUMENT_ID_FIELD))
+				{
+					String queryString = columnValueMap.get(CodingDataRepository.QUERYSTRING_FIELD).toString();
+					boolean isMapped = Boolean.parseBoolean(columnValueMap.get(CodingDataRepository.IS_MAPPED_FIELD)
+							.toString());
+
+					String documentId = columnValueMap.get(CodingDataRepository.DOCUMENT_ID_FIELD).toString();
+					Float ngramScore = Float
+							.parseFloat(columnValueMap.get(CodingDataRepository.SCORE_FIELD).toString());
+					String identifier = columnValueMap.get(CodingDataRepository.IDENTIFIER_FIELD).toString();
+					int columnIndex = Integer.parseInt(columnValueMap.get(CodingDataRepository.COLUMN_INDEX_FIELD)
+							.toString());
+					boolean isCustomSearched = Boolean.parseBoolean(columnValueMap.get(
+							CodingDataRepository.IS_CUSTOM_SEARCHED_FIELD).toString());
+					boolean isFinalized = Boolean.parseBoolean(columnValueMap.get(
+							CodingDataRepository.IS_FINALIZED_FIELD).toString());
+					Date addedDate = new Date(Long.parseLong(columnValueMap.get(CodingDataRepository.ADDED_DATE_FIELD)
+							.toString()));
+					String addedDateString = columnValueMap.get(CodingDataRepository.ADDED_DATE_STRING_FIELD)
+							.toString();
+					Object columnValueMapDoc = columnValueMap.get(CodingDataRepository.DOCUMENT_DATA_FIELD);
+
+					Map<String, Object> documentDataMap = new HashMap<String, Object>();
+
+					if (columnValueMapDoc instanceof Map<?, ?>)
+					{
+						for (Entry<?, ?> entry : ((Map<?, ?>) columnValueMapDoc).entrySet())
+						{
+							documentDataMap.put(entry.getKey().toString(), entry.getValue());
+						}
+					}
+
+					Map<String, RecodeResponse> activities = null;
+					if (isMapped)
+					{
+						activities = codingState.getMappedActivities();
+					}
+					else
+					{
+						activities = codingState.getRawActivities();
+					}
+
+					if (!activities.containsKey(queryString))
+					{
+						Hit recoveredHit = new Hit(documentId, null, documentDataMap);
+						recoveredHit.setScore(ngramScore);
+						RecodeResponse recodeResponse = new RecodeResponse(queryString, recoveredHit);
+						recodeResponse.setCustomSearched(isCustomSearched);
+						recodeResponse.setFinalSelection(isFinalized);
+						recodeResponse.setAddedDate(addedDate);
+						recodeResponse.setDateString(addedDateString);
+						activities.put(queryString, recodeResponse);
+					}
+
+					if (!activities.get(queryString).getIdentifiers().containsKey(identifier))
+					{
+						activities.get(queryString).getIdentifiers().put(identifier, new HashSet<Integer>());
+					}
+					activities.get(queryString).getIdentifiers().get(identifier).add(columnIndex);
+				}
+			}
+		}
 		Map<String, Object> results = new HashMap<String, Object>();
+
 		List<RecodeResponse> listOfMapped = new ArrayList<RecodeResponse>(codingState.getMappedActivities().values());
 		List<RecodeResponse> listOfUnMapped = new ArrayList<RecodeResponse>(codingState.getRawActivities().values());
 
@@ -164,6 +232,51 @@ public class ViewRecodeController
 
 		return results;
 	}
+
+	// @RequestMapping(value = "/retrieve", method = RequestMethod.GET, produces
+	// = APPLICATION_JSON_VALUE)
+	// @ResponseBody
+	// public Map<String, Object> retrieveReport(@RequestParam(required = false,
+	// value = "displayNumberMatched")
+	// Integer maxNumberMatched, @RequestParam(required = false, value =
+	// "displayNumberMatched")
+	// Integer maxNumberUnMatched)
+	// {
+	//
+	// Map<String, Object> results = new HashMap<String, Object>();
+	// List<RecodeResponse> listOfMapped = new
+	// ArrayList<RecodeResponse>(codingState.getMappedActivities().values());
+	// List<RecodeResponse> listOfUnMapped = new
+	// ArrayList<RecodeResponse>(codingState.getRawActivities().values());
+	//
+	// Collections.sort(listOfMapped);
+	// Collections.sort(listOfUnMapped);
+	//
+	// int displaySizeMatched = 100;
+	// if (maxNumberMatched != null)
+	// {
+	// displaySizeMatched = maxNumberMatched > displaySizeMatched ?
+	// maxNumberMatched : displaySizeMatched;
+	// }
+	//
+	// results.put(
+	// "matched",
+	// listOfMapped.subList(0,
+	// displaySizeMatched <= listOfMapped.size() ? displaySizeMatched :
+	// listOfMapped.size()));
+	//
+	// int displaySizeUmatched = 10;
+	// if (maxNumberUnMatched != null)
+	// {
+	// displaySizeUmatched = maxNumberUnMatched > displaySizeUmatched ?
+	// maxNumberUnMatched : displaySizeUmatched;
+	// }
+	// results.put("unmatched", listOfUnMapped.subList(0,
+	// displaySizeUmatched <= listOfUnMapped.size() ? displaySizeUmatched :
+	// listOfUnMapped.size()));
+	//
+	// return results;
+	// }
 
 	@RequestMapping(value = "/totalnumber", method = RequestMethod.GET, produces = APPLICATION_JSON_VALUE)
 	@ResponseBody
@@ -403,12 +516,61 @@ public class ViewRecodeController
 
 	@RequestMapping(value = "/upload", method = RequestMethod.POST, headers = "Content-Type=multipart/form-data")
 	public String uploadFileHandler(@RequestParam("file")
-	MultipartFile file, @RequestParam(value = "selectedCodeSystem", required = false)
-	String codeSystem, Model model) throws InvalidFormatException, IOException
+	MultipartFile file, @RequestParam(required = false, value = "selectedCodeSystem")
+	String codeSystem, @RequestParam(required = false, value = "codingJobName")
+	String codingJobName, Model model) throws InvalidFormatException, IOException
 	{
-		if (!file.isEmpty() && !StringUtils.isEmpty(codeSystem))
+		if (!file.isEmpty() && !StringUtils.isEmpty(codeSystem) && !StringUtils.isEmpty(codingJobName))
 		{
-			processUploadedVariableData(file, codeSystem);
+			List<Hit> hits = elasticSearchImp.exactMatch(ElasticSearchImp.INDEX_TYPE, codingJobName,
+					ElasticSearchImp.DEFAULT_NAME_FIELD);
+			if (hits.size() == 0)
+			{
+				CsvRepository csvRepository = null;
+				try
+				{
+					codingState.setSelectedCodeSystem(codeSystem);
+					codingState.setSelectedCodingJob(codingJobName);
+					File serverFile = createFileOnServer(file);
+
+					if (serverFile.exists())
+					{
+						csvRepository = new CsvRepository(new File(serverFile.getAbsolutePath()),
+								Arrays.<CellProcessor> asList(new LowerCaseProcessor(), new TrimProcessor()), ';');
+
+						if (validateExcelColumnHeaders(csvRepository.getEntityMetaData()))
+						{
+							Map<String, Object> doc = new HashMap<String, Object>();
+							doc.put(ElasticSearchImp.DEFAULT_NAME_FIELD, codingJobName);
+							doc.put(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD, codeSystem);
+							doc.put("threshold", codingState.getThreshold());
+							doc.put("finished", false);
+							doc.put("date", new Date().getTime());
+							elasticSearchImp.indexDocument(doc);
+							elasticSearchImp.indexRepository(new CodingDataRepository(codingJobName, codeSystem,
+									codingState.getThreshold(), csvRepository, elasticSearchImp, nGramService));
+							isRecoding = true;
+						}
+					}
+				}
+				catch (Throwable e)
+				{
+					codingState.clearState();
+				}
+				finally
+				{
+					if (csvRepository != null) csvRepository.close();
+				}
+			}
+			else
+			{
+				model.addAttribute("message", "The name of the job <strong>" + codingJobName
+						+ "</strong> has existed, please define a new name!");
+			}
+		}
+		else
+		{
+			model.addAttribute("message", "Please fill out all the information!");
 		}
 		return "redirect:/recode";
 	}
@@ -505,7 +667,8 @@ public class ViewRecodeController
 	}
 
 	@Async
-	private void processUploadedVariableData(MultipartFile file, String codeSystem) throws IOException
+	private void processUploadedVariableData(MultipartFile file, String codingJobName, String codeSystem)
+			throws IOException
 	{
 		CsvRepository csvRepository = null;
 		try
@@ -521,79 +684,8 @@ public class ViewRecodeController
 
 				if (validateExcelColumnHeaders(csvRepository.getEntityMetaData()))
 				{
-					// Map to store the activity name with corresponding
-					// individuals
-					Iterator<Entity> iterator = csvRepository.iterator();
-
-					codingState.addColumns(csvRepository.getEntityMetaData().getAttributes());
-
-					Date indexedDate = new Date();
-
-					while (iterator.hasNext())
-					{
-						Entity entity = iterator.next();
-						String individualIdentifier = entity.getString("Identifier");
-						codingState.addInvalidIndividuals(individualIdentifier);
-
-						for (int columnIndex = 0; columnIndex < codingState.getMaxNumColumns().size(); columnIndex++)
-						{
-							String columnName = codingState.getMaxNumColumns().get(columnIndex);
-
-							if (columnName.equalsIgnoreCase("identifier")) continue;
-
-							if (columnName.toLowerCase().startsWith("name"))
-							{
-								String activityName = entity.getString(columnName);
-
-								if (!StringUtils.isEmpty(individualIdentifier) && !StringUtils.isEmpty(activityName))
-								{
-									codingState.removeInvalidIndividuals(individualIdentifier);
-
-									List<Hit> searchHits = elasticSearchImp.search(codeSystem, activityName, null);
-									nGramService.calculateNGramSimilarity(activityName, "name", searchHits);
-									for (Hit hit : searchHits)
-									{
-										if (hit.getScore().intValue() >= codingState.getThreshold())
-										{
-											if (!codingState.getMappedActivities().containsKey(activityName))
-											{
-												codingState.getMappedActivities().put(activityName,
-														new RecodeResponse(activityName, hit));
-											}
-											if (!codingState.getMappedActivities().get(activityName).getIdentifiers()
-													.containsKey(individualIdentifier))
-											{
-												codingState.getMappedActivities().get(activityName).getIdentifiers()
-														.put(individualIdentifier, new HashSet<Integer>());
-											}
-											codingState.getMappedActivities().get(activityName).getIdentifiers()
-													.get(individualIdentifier).add(columnIndex);
-											codingState.getMappedActivities().get(activityName)
-													.setAddedDate(indexedDate);
-										}
-										else
-										{
-											if (!codingState.getRawActivities().containsKey(activityName))
-											{
-												codingState.getRawActivities().put(activityName,
-														new RecodeResponse(activityName, hit));
-											}
-											if (!codingState.getRawActivities().get(activityName).getIdentifiers()
-													.containsKey(individualIdentifier))
-											{
-												codingState.getRawActivities().get(activityName).getIdentifiers()
-														.put(individualIdentifier, new HashSet<Integer>());
-											}
-											codingState.getRawActivities().get(activityName).getIdentifiers()
-													.get(individualIdentifier).add(columnIndex);
-											codingState.getRawActivities().get(activityName).setAddedDate(indexedDate);
-										}
-										break;
-									}
-								}
-							}
-						}
-					}
+					elasticSearchImp.indexRepository(new CodingDataRepository(codingJobName, codeSystem, codingState
+							.getThreshold(), csvRepository, elasticSearchImp, nGramService));
 					isRecoding = true;
 				}
 			}

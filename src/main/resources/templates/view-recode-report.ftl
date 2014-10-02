@@ -12,9 +12,14 @@
 	<div id="backup-check" class="row-fluid"></div>
 	<div class="row-fluid">
 		<div class="offset3 span6 well">
-			<strong>Select a code system : </strong>
-			<div style="float:right;">
-				<select id="selectedCodeSystem" name="selectedCodeSystem"></select>
+			<div class="row-fluid">
+				<strong>Select a code system : </strong>
+				<div style="float:right;">
+					<select id="selectedCodeSystem" name="selectedCodeSystem"></select>
+				</div>
+			</div><br>
+			<div class="row-fluid" style="margin-bottom:-15px;">
+				<strong>Define the name of the job : </strong><input type="text" id="codingJobName" name="codingJobName" style="float:right;">
 			</div>
 		</div>
 	</div>

@@ -29,4 +29,7 @@ public interface SearchService
 	public void deleteDocumentsByType(String documentType);
 
 	public void indexCodeSystem(Entity entity);
+
+	public List<Hit> exactMatch(String indexType, String codingJobName, String defaultNameField);
+
 }

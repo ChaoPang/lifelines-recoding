@@ -339,4 +339,18 @@ public class ElasticSearchImp implements SearchService
 		data.put(ElasticSearchImp.DEFAULT_NAME_FIELD, entity.getString(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD));
 		indexDocument(data);
 	}
+
+	@Override
+	public List<Hit> exactMatch(String documentType, String value, String field)
+	{
+		List<Hit> hits = new ArrayList<Hit>();
+		for (Hit hit : search(documentType, value, field))
+		{
+			if (value.equalsIgnoreCase(hit.getColumnValueMap().get(field).toString()))
+			{
+				hits.add(hit);
+			}
+		}
+		return hits;
+	}
 }
