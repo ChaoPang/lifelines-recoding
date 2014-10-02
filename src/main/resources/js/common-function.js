@@ -170,21 +170,26 @@
 					var cancelButton = $('<button type="button" class="btn">Cancel</button>');
 					var row = $('<tr />').append('<td>' + hit.columnValueMap.name +'</td>').append('<td>' + hit.columnValueMap.codesystem +'</td>').append('<td>' + new Date(hit.columnValueMap.addedDate) +'</td>').appendTo(table);
 					$('<td />').append(recoveyButton).appendTo(row);
-					recoveyButton.click(function(){
-						recoveyButton.parents('td:eq(0)').append(confirmButton).append(cancelButton);
-						recoveyButton.hide();
-						molgenis.createAlert([{'message':'The current job will be <strong>removed</strong> if you recover this backup, are you sure?'}],'warning', parentElement);
-						confirmButton.click(function(){
-							molgenis.recoverBackup(hit.columnValueMap.name);
+					if(!data.notAllow){
+						recoveyButton.click(function(){
+							recoveyButton.parents('td:eq(0)').append(confirmButton).append(cancelButton);
+							recoveyButton.hide();
+							molgenis.createAlert([{'message':'The current job will be <strong>removed</strong> if you recover this backup, are you sure?'}],'warning', parentElement);
+							confirmButton.click(function(){
+								molgenis.recoverBackup(hit.columnValueMap.name);
+							});
+							cancelButton.click(function(){
+								recoveyButton.show();
+								confirmButton.remove();
+								cancelButton.remove();
+							})
 						});
-						
-						cancelButton.click(function(){
-							recoveyButton.show();
-							confirmButton.remove();
-							cancelButton.remove();
-						})
-					});
+					}
 				});
+				if(data.notAllow){
+					molgenis.createAlert([{'message':'The system is either uploading new data or backing up, if you want to recover old jobs, please wait until it`s finished!'}],'warning', parentElement);
+					table.find('button').attr('disabled', 'true');
+				};	
 			}
 		});
 	};
