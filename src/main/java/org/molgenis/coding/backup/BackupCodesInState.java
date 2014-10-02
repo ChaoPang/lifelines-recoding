@@ -1,6 +1,7 @@
 package org.molgenis.coding.backup;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -10,10 +11,13 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.commons.lang3.StringUtils;
+import org.elasticsearch.search.sort.SortOrder;
 import org.molgenis.coding.elasticsearch.CodingState;
 import org.molgenis.coding.elasticsearch.ElasticSearchImp;
 import org.molgenis.coding.elasticsearch.Hit;
 import org.molgenis.coding.elasticsearch.SearchService;
+import org.molgenis.coding.util.MapperTypeSanitizer;
 import org.molgenis.coding.util.RecodeResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
@@ -32,8 +36,9 @@ public class BackupCodesInState
 	public final static String ADDED_DATE_STRING_FIELD = "dateString";
 	public final static String THRESHOLD_FIELD = "threshold";
 	public final static String INPUT_COLUMN_FIELD = "input_column";
-	private final static String BACKUP_VALID_TYPE_FIELD = "backup_valid_data";
-	private final static String BACKUP_INVALID_TYPE_FIELD = "backup_general_info";
+
+	private final static String BACKUP_DOCUMENT_TYPE = "backup";
+
 	private final AtomicInteger isRecovering = new AtomicInteger();
 	private final AtomicInteger isBackup = new AtomicInteger();
 	private final SearchService elasticSearchImp;
@@ -59,47 +64,77 @@ public class BackupCodesInState
 	}
 
 	@Async
-	public void index() throws IOException
+	public void index(boolean clear) throws IOException
 	{
 		isBackup.incrementAndGet();
 		if ((codingState.getMappedActivities().size() != 0 || codingState.getRawActivities().size() != 0)
-				&& !isRecoveryRunning())
+				&& !isRecoveryRunning() && !StringUtils.isEmpty(codingState.getCodingJobName())
+				&& !StringUtils.isEmpty(codingState.getSelectedCodeSystem()))
 		{
-			elasticSearchImp.deleteDocumentsByType(BACKUP_VALID_TYPE_FIELD);
-			elasticSearchImp.deleteDocumentsByType(BACKUP_INVALID_TYPE_FIELD);
+
+			String createBackupName = createBackupName(codingState.getCodingJobName());
+			String createBackupInfo = createBackupInfo(codingState.getCodingJobName());
+
+			List<Hit> hits = elasticSearchImp.exactMatch(BACKUP_DOCUMENT_TYPE, codingState.getCodingJobName(),
+					ElasticSearchImp.DEFAULT_NAME_FIELD);
+
+			if (hits.size() > 0)
+			{
+				elasticSearchImp.deleteDocumentsByType(createBackupName);
+				elasticSearchImp.deleteDocumentsByType(createBackupInfo);
+				for (Hit hit : hits)
+				{
+					elasticSearchImp.deleteDocumentById(hit.getDocumentId(), BACKUP_DOCUMENT_TYPE);
+				}
+			}
 
 			elasticSearchImp.indexRepository(new BackupRepository(codingState.getMappedActivities().values(),
-					BACKUP_VALID_TYPE_FIELD, true));
+					createBackupName, true));
 
 			elasticSearchImp.indexRepository(new BackupRepository(codingState.getRawActivities().values(),
-					BACKUP_VALID_TYPE_FIELD, false));
+					createBackupName, false));
 
 			Map<String, Object> doc = new HashMap<String, Object>();
 			doc.put(IDENTIFIERS_FIELD, codingState.getInvalidIndividuals());
 			doc.put(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD, codingState.getSelectedCodeSystem());
 			doc.put(THRESHOLD_FIELD, codingState.getThreshold());
 			doc.put(INPUT_COLUMN_FIELD, codingState.getMaxNumColumns());
-			elasticSearchImp.indexDocument(doc, BACKUP_INVALID_TYPE_FIELD);
+			elasticSearchImp.indexDocument(doc, createBackupInfo);
 
+			Map<String, Object> backupEntry = new HashMap<String, Object>();
+			backupEntry.put(ElasticSearchImp.DEFAULT_NAME_FIELD, codingState.getCodingJobName());
+			backupEntry.put(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD, codingState.getSelectedCodeSystem());
+			backupEntry.put(ADDED_DATE_FIELD, new Date().getTime());
+			elasticSearchImp.indexDocument(backupEntry, BACKUP_DOCUMENT_TYPE);
 		}
 		isBackup.decrementAndGet();
+
+		if (clear) codingState.clearState();
 	}
 
-	public boolean backupExisits()
+	public boolean checkBackupByName(String codingJobName)
 	{
-		List<Hit> backUpHits = elasticSearchImp.search(BACKUP_VALID_TYPE_FIELD, null, null);
-		List<Hit> identifierHits = elasticSearchImp.search(BACKUP_INVALID_TYPE_FIELD, null, null);
-		return backUpHits.size() > 0 || identifierHits.size() > 0;
+		return elasticSearchImp.exactMatch(BACKUP_DOCUMENT_TYPE, codingJobName, ElasticSearchImp.DEFAULT_NAME_FIELD)
+				.size() > 0;
 	}
 
-	public Map<String, Object> recovery()
+	public List<Hit> backupExisits()
 	{
+		return elasticSearchImp.search(BACKUP_DOCUMENT_TYPE, null, null, ADDED_DATE_FIELD, SortOrder.DESC);
+	}
+
+	public Map<String, Object> recovery(String codingJobName)
+	{
+		if (StringUtils.isEmpty(codingJobName)) return Collections.emptyMap();
 		Map<String, Object> result = new HashMap<String, Object>();
 		result.put("success", true);
 		try
 		{
+			codingState.clearState();
+			codingState.setCoding(true);
+			codingState.setCodingJobName(codingJobName);
 			isRecovering.incrementAndGet();
-			List<Hit> backUpHits = elasticSearchImp.search(BACKUP_VALID_TYPE_FIELD, null, null);
+			List<Hit> backUpHits = elasticSearchImp.search(createBackupName(codingJobName), null, null);
 			if (backUpHits.size() > 0)
 			{
 				for (Hit backUpHit : backUpHits)
@@ -163,7 +198,7 @@ public class BackupCodesInState
 				}
 			}
 
-			List<Hit> identifierHits = elasticSearchImp.search(BACKUP_INVALID_TYPE_FIELD, null, null);
+			List<Hit> identifierHits = elasticSearchImp.search(createBackupInfo(codingJobName), null, null);
 			if (identifierHits.size() > 0)
 			{
 				for (Hit hit : identifierHits)
@@ -189,7 +224,7 @@ public class BackupCodesInState
 
 					codingState.setSelectedCodeSystem(codeSystemObject.toString());
 					codingState.setThreshold(Integer.parseInt(thresholdObject.toString()));
-
+					codingState.setCodingJobName(codingJobName);
 				}
 			}
 		}
@@ -204,5 +239,19 @@ public class BackupCodesInState
 		}
 
 		return result;
+	}
+
+	private String createBackupName(String codingJobName)
+	{
+		StringBuilder stringBuilder = new StringBuilder();
+		stringBuilder.append(codingJobName).append("_backup");
+		return MapperTypeSanitizer.sanitizeMapperType(stringBuilder.toString());
+	}
+
+	private String createBackupInfo(String codingJobName)
+	{
+		StringBuilder stringBuilder = new StringBuilder();
+		stringBuilder.append(codingJobName).append("_backup_info");
+		return MapperTypeSanitizer.sanitizeMapperType(stringBuilder.toString());
 	}
 }

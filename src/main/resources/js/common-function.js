@@ -140,6 +140,55 @@
 		});
 	};
 	
+	molgenis.recoverBackup = function(codingJobName){
+		$.ajax({
+			type : 'POST',
+			url :  '/recode/recovery',
+			data : JSON.stringify({'codingJobName' : codingJobName}),
+			contentType : 'application/json',
+			success : function(data){
+				if(data.success){
+					window.location.href = '/recode';
+				}else{
+					console.log(data.message);
+				}
+			}
+		});
+	}
+	
+	molgenis.retrieveBackups = function(parentElement){
+		$.ajax({
+			type : 'GET',
+			url :  '/backup/list',
+			contentType : 'application/json',
+			success : function(data){
+				var table = $('<table />').addClass('table').appendTo(parentElement);
+				table.append('<tr><th>Job name</th><th>Code system</th><th>Date</th><th style="width:20%;">Recover</th></tr>');
+				$.each(data.results, function(index, hit){
+					var recoveyButton = $('<button type="button" class="btn">Recover</button>');
+					var confirmButton = $('<button type="button" class="btn btn-primary" style="float:right;">Confirm</button>');
+					var cancelButton = $('<button type="button" class="btn">Cancel</button>');
+					var row = $('<tr />').append('<td>' + hit.columnValueMap.name +'</td>').append('<td>' + hit.columnValueMap.codesystem +'</td>').append('<td>' + hit.columnValueMap.addedDate +'</td>').appendTo(table);
+					$('<td />').append(recoveyButton).appendTo(row);
+					recoveyButton.click(function(){
+						recoveyButton.parents('td:eq(0)').append(confirmButton).append(cancelButton);
+						recoveyButton.hide();
+						molgenis.createAlert([{'message':'The current job will be <strong>removed</strong> if you recover this backup, are you sure?'}],'warning', parentElement);
+						confirmButton.click(function(){
+							molgenis.recoverBackup(hit.columnValueMap.name);
+						});
+						
+						cancelButton.click(function(){
+							recoveyButton.show();
+							confirmButton.remove();
+							cancelButton.remove();
+						})
+					});
+				});
+			}
+		});
+	};
+	
 	molgenis.defaultAddCode = function(query, hit, callback){
 		var request = {
 			'data' : {

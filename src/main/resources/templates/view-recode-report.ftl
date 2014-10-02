@@ -2,7 +2,41 @@
 <#include "template-footer.ftl">
 <@header/>
 <script src="/js/view-recode.js"></script>
-<#if hidForm?? && !hidForm>
+<#if isBackup ?? && isBackup>
+<div class="row-fluid" style="margin-top:200px;">
+	<div class="span12">
+		<center>The coded data is being backed up now, please be patient!</center>
+	</div>
+</div>
+<script>
+	$(document).ready(function(){
+		setTimeout(function(){
+			location.reload();
+		}, 5000);
+	});
+</script>
+<#elseif isUploading ?? && isUploading>
+<div class="row-fluid" style="margin-top:200px;">
+	<div class="span12">
+		<center>The file is being uploaded now, please be patient!</center>
+		<br><br>
+	</div>
+</div>
+<div class="row-fluid">
+	<div class="offset3 span6">
+		<div class="progress progress-striped active">
+		  <div class="bar" style="width:${percentage}%;"></div>
+		</div>
+	</div>
+</div>
+<script>
+	$(document).ready(function(){
+		setTimeout(function(){
+			location.reload();
+		}, 5000);
+	});
+</script>
+<#elseif hidForm?? && !hidForm>
 <form method="POST" enctype="multipart/form-data">
 	<div class="row-fluid">
 		<div class="span12">
@@ -12,9 +46,15 @@
 	<div id="backup-check" class="row-fluid"></div>
 	<div class="row-fluid">
 		<div class="offset3 span6 well">
-			<strong>Select a code system : </strong>
-			<div style="float:right;">
-				<select id="selectedCodeSystem" name="selectedCodeSystem"></select>
+			<div class="row-fluid">
+				<strong>Select a code system : </strong>
+				<div style="float:right;">
+					<select id="selectedCodeSystem" name="selectedCodeSystem"></select>
+				</div>
+			</div><br>
+			<div class="row-fluid">
+				<strong>Define the name of the coding job :</strong>
+				<input type="text" name="codingJobName" style="float:right;margin-bottom:-5px;"/> 
 			</div>
 		</div>
 	</div>
@@ -88,40 +128,6 @@
 			});
 		});
 		molgenis.checkBackup($('#backup-check'));
-	});
-</script>
-<#elseif isBackup ?? && isBackup>
-<div class="row-fluid" style="margin-top:200px;">
-	<div class="span12">
-		<center>The coded data is being backed up now, please be patient!</center>
-	</div>
-</div>
-<script>
-	$(document).ready(function(){
-		setTimeout(function(){
-			location.reload();
-		}, 5000);
-	});
-</script>
-<#elseif isUploading ?? && isUploading>
-<div class="row-fluid" style="margin-top:200px;">
-	<div class="span12">
-		<center>The file is being uploaded now, please be patient!</center>
-		<br><br>
-	</div>
-</div>
-<div class="row-fluid">
-	<div class="offset3 span6">
-		<div class="progress progress-striped active">
-		  <div class="bar" style="width:${percentage}%;"></div>
-		</div>
-	</div>
-</div>
-<script>
-	$(document).ready(function(){
-		setTimeout(function(){
-			location.reload();
-		}, 5000);
 	});
 </script>
 <#else>

@@ -6,7 +6,7 @@
 			url :  '/recode/check',
 			contentType : 'application/json',
 			success : function(data){
-				if(data.backup){
+				if(data.backupExists){
 					var layoutDiv = $('<div />').addClass('offset3 span6 well').appendTo(parentElement);
 					var textDiv = $('<div />').addClass('row-fluid').appendTo(layoutDiv);
 					var buttonDiv = $('<div />').addClass('row-fluid').appendTo(layoutDiv);
@@ -14,26 +14,15 @@
 					var recoveryButton = $('<button type="button" class="btn btn-primary">Recover</button>').css('float','right');
 					var dismissButton = $('<button type="button" class="btn">Dismiss</button>').css('float','right');
 					
-					$('<div />').addClass('span12').append('The backup exists, would you like to recover the previous session?</br></br>').appendTo(textDiv);
+					$('<div />').addClass('span12').append('The backup exists, would you like to recover the most recent session?</br></br>').appendTo(textDiv);
 					$('<div />').addClass('offset6 span3').append(recoveryButton).appendTo(buttonDiv);
 					$('<div />').addClass('span3').append(dismissButton).appendTo(buttonDiv);
 					
 					dismissButton.click(function(){
 						parentElement.empty();
 					});
-					
 					recoveryButton.click(function(){
-						$.ajax({
-							type : 'GET',
-							url :  '/recode/recovery',
-							success : function(data){
-								if(data.success){
-									location.reload();
-								}else{
-									console.log(data.message);
-								}
-							}
-						});
+						molgenis.recoverBackup(data.backup[0].columnValueMap.name);
 					})
 				}
 			}

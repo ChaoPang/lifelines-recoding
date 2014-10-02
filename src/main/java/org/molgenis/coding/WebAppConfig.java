@@ -132,6 +132,6 @@ public class WebAppConfig extends WebMvcConfigurerAdapter
 	@Scheduled(cron = "0 0 4 * * ?")
 	public void indexUnfinishedResult() throws IOException
 	{
-		backupCodesInState.index();
+		backupCodesInState.index(false);
 	}
 }

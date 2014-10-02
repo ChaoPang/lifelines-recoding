@@ -66,13 +66,16 @@ public class ProcessVariableUtil
 	}
 
 	@Async
-	public void processUploadedVariableData(MultipartFile file, String codeSystem) throws IOException
+	public void processUploadedVariableData(MultipartFile file, String codeSystem, String codingJobName)
+			throws IOException
 	{
 		isProcessRunning.incrementAndGet();
 		CsvRepository csvRepository = null;
 		try
 		{
 			codingState.setSelectedCodeSystem(codeSystem);
+			codingState.setCodingJobName(codingJobName);
+			codingState.setCoding(true);
 
 			File serverFile = createFileOnServer(file);
 

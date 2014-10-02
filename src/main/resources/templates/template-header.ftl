@@ -17,10 +17,11 @@
 		<div id="header-menu" class="navbar">
 			<div class="navbar-inner divider-vertical">
 				<ul class="nav">
-					<li id="view-find-codes"><a href="/">Find codes</a></li>
 					<li id="view-recode-report"><a href="/recode">Recode data</a></li>
 					<li id="view-all-codes"><a href="/view">Available codes</a></li>
 					<li id="view-upload-codes"><a href="/add">Upload codes</a></li>
+					<li id="view-all-backup"><a href="/backup">View backups</a></li>
+					<li id="view-find-codes"><a href="/">Find codes</a></li>
 				</ul>
 			</div>
 		</div>

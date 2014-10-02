@@ -89,32 +89,39 @@ public class ViewRecodeController
 		model.addAttribute("isBackup", backupCodesInState.isBackupRunning());
 		model.addAttribute("isUploading", processVariableUtil.isUploading());
 		model.addAttribute("percentage", processVariableUtil.percentage());
+		if (codingState.getErrorMessage() != null)
+		{
+			model.addAttribute("message", codingState.getErrorMessage());
+			codingState.setErrorMessage(null);
+		}
 		return VIEW_NAME;
 	}
 
 	@RequestMapping(value = "/finish", method = RequestMethod.GET)
-	public String finishedRecoding(Model model)
+	public String finishedRecoding(Model model) throws IOException
 	{
-		if (codingState.getRawActivities().size() == 0)
-		{
-			codingState.clearState();
-		}
+		backupCodesInState.index(true);
 		return "redirect:/recode";
 	}
 
 	@RequestMapping(value = "/backup", method = RequestMethod.GET)
 	public String backup(Model model) throws IOException
 	{
-		backupCodesInState.index();
+		backupCodesInState.index(false);
 		return "redirect:/recode";
 	}
 
-	@RequestMapping(value = "/recovery", method = RequestMethod.GET, produces = APPLICATION_JSON_VALUE)
+	@RequestMapping(value = "/recovery", method = RequestMethod.POST, produces = APPLICATION_JSON_VALUE)
 	@ResponseBody
-	public Map<String, Object> recovery()
+	public Map<String, Object> recovery(@RequestBody
+	Map<String, Object> request)
 	{
-		codingState.setCoding(true);
-		return backupCodesInState.recovery();
+		if (request.containsKey("codingJobName") && !StringUtils.isEmpty(request.get("codingJobName").toString()))
+		{
+			String codeJobName = request.get("codingJobName").toString();
+			return backupCodesInState.recovery(codeJobName);
+		}
+		return Collections.emptyMap();
 	}
 
 	@RequestMapping(value = "/check", method = RequestMethod.GET, produces = APPLICATION_JSON_VALUE)
@@ -122,7 +129,9 @@ public class ViewRecodeController
 	public Map<String, Object> checkBackUp(Model model)
 	{
 		Map<String, Object> results = new HashMap<String, Object>();
-		results.put("backup", backupCodesInState.backupExisits());
+		List<Hit> backupExisits = backupCodesInState.backupExisits();
+		results.put("backupExists", backupExisits.size() > 0);
+		results.put("backup", backupExisits);
 		return results;
 	}
 
@@ -401,12 +410,23 @@ public class ViewRecodeController
 	@RequestMapping(value = "/upload", method = RequestMethod.POST, headers = "Content-Type=multipart/form-data")
 	public String uploadFileHandler(@RequestParam("file")
 	MultipartFile file, @RequestParam(value = "selectedCodeSystem", required = false)
-	String codeSystem, Model model) throws InvalidFormatException, IOException
+	String codeSystem, @RequestParam(value = "codingJobName", required = false)
+	String codingJobName, Model model) throws InvalidFormatException, IOException
 	{
-		if (!file.isEmpty() && !StringUtils.isEmpty(codeSystem))
+		if (!file.isEmpty() && !StringUtils.isEmpty(codeSystem) && !StringUtils.isEmpty(codingJobName))
 		{
-			processVariableUtil.processUploadedVariableData(file, codeSystem);
-			codingState.setCoding(true);
+			if (backupCodesInState.checkBackupByName(codingJobName))
+			{
+				codingState.setErrorMessage("The job name has existed in backup, please use another name!");
+			}
+			else
+			{
+				processVariableUtil.processUploadedVariableData(file, codeSystem, codingJobName);
+			}
+		}
+		else
+		{
+			codingState.setErrorMessage("Please fill out all the required fields in the form!");
 		}
 		return "redirect:/recode";
 	}

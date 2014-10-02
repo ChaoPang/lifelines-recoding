@@ -19,6 +19,8 @@ public class CodingState
 
 	private Integer threshold = 80;
 	private String selectedCodeSystem = null;
+	private String codingJobName = null;
+	private String errorMessage = null;
 	private boolean isCoding = false;
 
 	public Integer getThreshold()
@@ -96,5 +98,25 @@ public class CodingState
 	public void setCoding(boolean isCoding)
 	{
 		this.isCoding = isCoding;
+	}
+
+	public void setCodingJobName(String codingJobName)
+	{
+		this.codingJobName = codingJobName;
+	}
+
+	public String getCodingJobName()
+	{
+		return codingJobName;
+	}
+
+	public String getErrorMessage()
+	{
+		return errorMessage;
+	}
+
+	public void setErrorMessage(String errorMessage)
+	{
+		this.errorMessage = errorMessage;
 	}
 }
