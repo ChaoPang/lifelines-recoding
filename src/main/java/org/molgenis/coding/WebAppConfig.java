@@ -1,5 +1,6 @@
 package org.molgenis.coding;
 
+import java.io.IOException;
 import java.util.List;
 
 import org.molgenis.coding.backup.BackupCodesInState;
@@ -119,7 +120,7 @@ public class WebAppConfig extends WebMvcConfigurerAdapter
 	}
 
 	@Scheduled(cron = "0 0 4 * * ?")
-	public void indexUnfinishedResult()
+	public void indexUnfinishedResult() throws IOException
 	{
 		backupCodesInState.index();
 	}

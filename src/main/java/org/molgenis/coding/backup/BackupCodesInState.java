@@ -1,5 +1,6 @@
 package org.molgenis.coding.backup;
 
+import java.io.IOException;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -19,18 +20,18 @@ import org.springframework.scheduling.annotation.Async;
 
 public class BackupCodesInState
 {
-	private final static String IS_MAPPED_FIELD = "mapped";
-	private final static String QUERYSTRING_FIELD = "queryString";
-	private final static String IDENTIFIERS_FIELD = "identifiers";
-	private final static String DOCUMENT_ID_FIELD = "documentId";
-	private final static String SCORE_FIELD = "score";
-	private final static String DOCUMENT_DATA_FIELD = "data";
-	private final static String IS_CUSTOM_SEARCHED_FIELD = "isCustomSearched";
-	private final static String IS_FINALIZED_FIELD = "finalSelection";
-	private final static String ADDED_DATE_FIELD = "addedDate";
-	private final static String ADDED_DATE_STRING_FIELD = "dateString";
-	private final static String THRESHOLD_FIELD = "threshold";
-	private final static String INPUT_COLUMN_FIELD = "input_column";
+	public final static String IS_MAPPED_FIELD = "mapped";
+	public final static String QUERYSTRING_FIELD = "queryString";
+	public final static String IDENTIFIERS_FIELD = "identifiers";
+	public final static String DOCUMENT_ID_FIELD = "documentId";
+	public final static String SCORE_FIELD = "score";
+	public final static String DOCUMENT_DATA_FIELD = "data";
+	public final static String IS_CUSTOM_SEARCHED_FIELD = "isCustomSearched";
+	public final static String IS_FINALIZED_FIELD = "finalSelection";
+	public final static String ADDED_DATE_FIELD = "addedDate";
+	public final static String ADDED_DATE_STRING_FIELD = "dateString";
+	public final static String THRESHOLD_FIELD = "threshold";
+	public final static String INPUT_COLUMN_FIELD = "input_column";
 	private final static String BACKUP_VALID_TYPE_FIELD = "backup_valid_data";
 	private final static String BACKUP_INVALID_TYPE_FIELD = "backup_general_info";
 	private final AtomicInteger isRecovering = new AtomicInteger();
@@ -47,29 +48,13 @@ public class BackupCodesInState
 		this.codingState = codingState;
 	}
 
-	private Map<String, Object> translate(RecodeResponse recodeResponse, boolean isMapped)
-	{
-		Map<String, Object> doc = new HashMap<String, Object>();
-		doc.put(QUERYSTRING_FIELD, recodeResponse.getQueryString());
-		doc.put(IDENTIFIERS_FIELD, recodeResponse.getIdentifiers());
-		doc.put(DOCUMENT_ID_FIELD, recodeResponse.getHit().getDocumentId());
-		doc.put(SCORE_FIELD, recodeResponse.getHit().getScore());
-		doc.put(DOCUMENT_DATA_FIELD, recodeResponse.getHit().getColumnValueMap());
-		doc.put(IS_CUSTOM_SEARCHED_FIELD, recodeResponse.isCustomSearched());
-		doc.put(IS_FINALIZED_FIELD, recodeResponse.isFinalSelection());
-		doc.put(ADDED_DATE_FIELD, recodeResponse.getAddedDate().getTime());
-		doc.put(ADDED_DATE_STRING_FIELD, recodeResponse.getDateString());
-		doc.put(IS_MAPPED_FIELD, isMapped);
-		return doc;
-	}
-
 	private boolean isRecoveryRunning()
 	{
 		return (isRecovering.get() > 0);
 	}
 
 	@Async
-	public void index()
+	public void index() throws IOException
 	{
 		if ((codingState.getMappedActivities().size() != 0 || codingState.getRawActivities().size() != 0)
 				&& !isRecoveryRunning())
@@ -77,15 +62,11 @@ public class BackupCodesInState
 			elasticSearchImp.deleteDocumentsByType(BACKUP_VALID_TYPE_FIELD);
 			elasticSearchImp.deleteDocumentsByType(BACKUP_INVALID_TYPE_FIELD);
 
-			for (RecodeResponse recodeResponse : codingState.getMappedActivities().values())
-			{
-				elasticSearchImp.indexDocument(translate(recodeResponse, true), BACKUP_VALID_TYPE_FIELD);
-			}
+			elasticSearchImp.indexRepository(new BackupRepository(codingState.getMappedActivities().values(),
+					BACKUP_VALID_TYPE_FIELD, true));
 
-			for (RecodeResponse recodeResponse : codingState.getRawActivities().values())
-			{
-				elasticSearchImp.indexDocument(translate(recodeResponse, false), BACKUP_VALID_TYPE_FIELD);
-			}
+			elasticSearchImp.indexRepository(new BackupRepository(codingState.getRawActivities().values(),
+					BACKUP_VALID_TYPE_FIELD, false));
 
 			Map<String, Object> doc = new HashMap<String, Object>();
 			doc.put(IDENTIFIERS_FIELD, codingState.getInvalidIndividuals());

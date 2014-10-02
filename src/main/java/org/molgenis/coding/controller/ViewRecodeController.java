@@ -115,7 +115,7 @@ public class ViewRecodeController
 	}
 
 	@RequestMapping(value = "/backup", method = RequestMethod.GET)
-	public String backup(Model model)
+	public String backup(Model model) throws IOException
 	{
 		backupCodesInState.index();
 		return "redirect:/recode";
