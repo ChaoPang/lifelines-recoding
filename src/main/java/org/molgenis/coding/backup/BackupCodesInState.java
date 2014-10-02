@@ -35,7 +35,7 @@ public class BackupCodesInState
 	private final static String BACKUP_VALID_TYPE_FIELD = "backup_valid_data";
 	private final static String BACKUP_INVALID_TYPE_FIELD = "backup_general_info";
 	private final AtomicInteger isRecovering = new AtomicInteger();
-
+	private final AtomicInteger isBackup = new AtomicInteger();
 	private final SearchService elasticSearchImp;
 	private final CodingState codingState;
 
@@ -53,9 +53,15 @@ public class BackupCodesInState
 		return (isRecovering.get() > 0);
 	}
 
+	public boolean isBackupRunning()
+	{
+		return (isBackup.get() > 0);
+	}
+
 	@Async
 	public void index() throws IOException
 	{
+		isBackup.incrementAndGet();
 		if ((codingState.getMappedActivities().size() != 0 || codingState.getRawActivities().size() != 0)
 				&& !isRecoveryRunning())
 		{
@@ -76,6 +82,7 @@ public class BackupCodesInState
 			elasticSearchImp.indexDocument(doc, BACKUP_INVALID_TYPE_FIELD);
 
 		}
+		isBackup.decrementAndGet();
 	}
 
 	public boolean backupExisits()

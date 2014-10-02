@@ -34,7 +34,6 @@ import org.elasticsearch.search.sort.SortOrder;
 import org.molgenis.data.Entity;
 import org.molgenis.data.Repository;
 import org.molgenis.util.RepositoryUtils;
-import org.springframework.scheduling.annotation.Async;
 import org.tartarus.snowball.ext.DutchStemmer;
 
 public class ElasticSearchImp implements SearchService
@@ -62,7 +61,6 @@ public class ElasticSearchImp implements SearchService
 		createIndexIfNotExists();
 	}
 
-	@Async
 	@Override
 	public void indexRepository(Repository repository) throws IOException
 	{

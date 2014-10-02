@@ -90,6 +90,19 @@
 		molgenis.checkBackup($('#backup-check'));
 	});
 </script>
+<#elseif isBackup ?? && isBackup >
+<div class="row-fluid">
+	<div class="span12">
+		<center>The backup is running now, please be patient!</center>
+	</div>
+</div>
+<script>
+	$(document).ready(function(){
+		setTimeout(function(){
+			location.reload();
+		}, 5000);
+	});
+</script>
 <#else>
 <form method="GET">
 	<input id="selectedCodeSystem" name="selectedCodeSystem" type="hidden"

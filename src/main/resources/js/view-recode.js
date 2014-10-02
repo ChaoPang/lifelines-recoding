@@ -155,7 +155,7 @@
 					});
 					var selectController = $('<select name="maxNumber"><option id="option-10">10</option><option id="option-100">100</option><option id="option-500">500</option><option id="option-All">All</option></select>').css('float','right');
 					selectController.find('#option-' + maxNumber).attr('selected', true);
-					var layoutDiv = $('<div />').addClass('row-fluid').append('<span class="large-text"><strong>' + (matched ? 'Matched results' : 'Unmatched results') + '</strong></span>').append(selectController).append('<br>').append(table);
+					var layoutDiv = $('<div />').addClass('row-fluid').append('<span class="large-text"><strong>' + (matched ? 'Matched results' : 'Unmatched results') + '</strong></span>').append(selectController).append('<br><br>').append(table);
 					resultContainer.empty().append(layoutDiv);
 					selectController.change(function(){
 						molgenis.retrieveResult(controlContainer, resultContainer, codeSystem, isMapped, true,  $(this).val());

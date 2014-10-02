@@ -100,6 +100,8 @@ public class ViewRecodeController
 		model.addAttribute("threshold", codingState.getThreshold());
 		model.addAttribute("hidForm", isRecoding);
 		model.addAttribute("viewId", VIEW_NAME);
+		model.addAttribute("isBackup", backupCodesInState.isBackupRunning());
+
 		return VIEW_NAME;
 	}
 
