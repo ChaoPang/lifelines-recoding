@@ -7,7 +7,9 @@ import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.IOException;
+import java.io.LineNumberReader;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -619,6 +621,23 @@ public class ViewRecodeController
 		return true;
 	}
 
+	// ######################## static helper method
+	// ############################
+
+	public static Map<String, Object> convertObjectToMap(Object data)
+	{
+		Map<String, Object> map = new HashMap<String, Object>();
+
+		if (data instanceof Map<?, ?>)
+		{
+			for (Entry<?, ?> entry : ((Map<?, ?>) data).entrySet())
+			{
+				map.put(entry.getKey().toString(), entry.getValue());
+			}
+		}
+		return map;
+	}
+
 	public static Map<String, Object> translateDataToMap(Map<String, Object> data, String query)
 	{
 		Map<String, Object> doc = new HashMap<String, Object>();
@@ -669,36 +688,22 @@ public class ViewRecodeController
 
 	}
 
-	public static Map<String, Object> convertObjectToMap(Object data)
+	public static int getLineNumber(File file) throws IOException
 	{
-		Map<String, Object> map = new HashMap<String, Object>();
-
-		if (data instanceof Map<?, ?>)
+		int lineNumber = 0;
+		if (file.exists())
 		{
-			for (Entry<?, ?> entry : ((Map<?, ?>) data).entrySet())
+			LineNumberReader lnr = new LineNumberReader(new FileReader(file));
+			try
 			{
-				map.put(entry.getKey().toString(), entry.getValue());
+				lnr.skip(Long.MAX_VALUE);
+				lineNumber = lnr.getLineNumber();
+			}
+			finally
+			{
+				lnr.close();
 			}
 		}
-		return map;
+		return lineNumber;
 	}
-	//
-	// public static int getLineNumber(File file) throws IOException
-	// {
-	// int lineNumber = 0;
-	// if (file.exists())
-	// {
-	// LineNumberReader lnr = new LineNumberReader(new FileReader(file));
-	// try
-	// {
-	// lnr.skip(Long.MAX_VALUE);
-	// lineNumber = lnr.getLineNumber();
-	// }
-	// finally
-	// {
-	// lnr.close();
-	// }
-	// }
-	// return lineNumber;
-	// }
 }
