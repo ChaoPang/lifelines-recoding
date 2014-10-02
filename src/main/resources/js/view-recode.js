@@ -53,20 +53,24 @@
 		});
 	};
 	
-	molgenis.retrieveResult = function(matchedContainer, unmatchedContainer, resultContainer, codeSystem){
+	molgenis.retrieveResult = function(controlContainer, resultContainer, codeSystem, isMapped, click, maxNumber){
+		var url = '/recode/retrieve/' + isMapped;
+		if(maxNumber) url += '?maxNumber=' + maxNumber;
 		$.ajax({
 			type : 'GET',
-			url :  '/recode/retrieve',
+			url :  url,
 			contentType : 'application/json',
 			success : function(data){
-				createReportTable(data.matched, matchedContainer, resultContainer, true);
-				createReportTable(data.unmatched, unmatchedContainer, resultContainer, false);
+				createReportTable(data, controlContainer, resultContainer, isMapped);
 			}
 		});
-		function createReportTable(matchingResults, parentElement, resultContainer, matched){
-			var showResultButton = $('<button class="btn ' + (matched ? 'btn-primary' : 'btn-info') + '" type="button" style=float:right;>Show result</button>');
-			$('<div />').addClass('span4').append(showResultButton).appendTo(parentElement);
+		function createReportTable(data, parentElement, resultContainer, matched){
+			var matchingResults = data.results;
+			var maxNumber = data.maxNumber;
 			if(matchingResults.length > 0){
+				parentElement.find('.control-button-div').remove();
+				var showResultButton = $('<button class="btn ' + (matched ? 'btn-primary' : 'btn-info') + '" type="button" style=float:right;>Show result</button>');
+				$('<div />').addClass('span4 control-button-div').append(showResultButton).appendTo(parentElement);
 				showResultButton.click(function(){
 					if(matched){
 						$(resultContainer).removeClass('offset3 span6').addClass('offset2 span8');
@@ -149,9 +153,15 @@
 						}
 						row.appendTo(table);
 					});
-					var layoutDiv = $('<div />').addClass('row-fluid').append('<br><div class="large-text"><strong><center>' + (matched ? 'Matched results' : 'Unmatched results') + '</center></strong></div><br>').append(table);
+					var selectController = $('<select name="maxNumber"><option id="option-10">10</option><option id="option-100">100</option><option id="option-500">500</option><option id="option-All">All</option></select>').css('float','right');
+					selectController.find('#option-' + maxNumber).attr('selected', true);
+					var layoutDiv = $('<div />').addClass('row-fluid').append('<span class="large-text"><strong>' + (matched ? 'Matched results' : 'Unmatched results') + '</strong></span>').append(selectController).append('<br>').append(table);
 					resultContainer.empty().append(layoutDiv);
-				});	
+					selectController.change(function(){
+						molgenis.retrieveResult(controlContainer, resultContainer, codeSystem, isMapped, true,  $(this).val());
+					});
+				});
+				if(click) showResultButton.click();
 			}
 		}
 		

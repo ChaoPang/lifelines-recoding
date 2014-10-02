@@ -139,7 +139,9 @@
 			$('#total-matched').append(data.matchedTotal ? data.matchedTotal : 0);
 			$('#total-unmatched').append(data.unmatchedTotal ? data.unmatchedTotal : 0);
 		});
-		molgenis.retrieveResult($('#matched-container'), $('#unmatched-container'), $('#result-container'), '${selectedCodeSystem}');
+		molgenis.retrieveResult($('#matched-container'), $('#result-container'), '${selectedCodeSystem}', true, false);
+		molgenis.retrieveResult($('#unmatched-container'), $('#result-container'), '${selectedCodeSystem}', false, true);
+		
 		$('#finished-button').click(function(){
 			$('form:first').attr({
 				'method' : 'GET',

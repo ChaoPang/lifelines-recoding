@@ -51,6 +51,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -130,37 +131,37 @@ public class ViewRecodeController
 		return results;
 	}
 
-	@RequestMapping(value = "/retrieve", method = RequestMethod.GET, produces = APPLICATION_JSON_VALUE)
+	@RequestMapping(value = "/retrieve/{mapped}", method = RequestMethod.GET, produces = APPLICATION_JSON_VALUE)
 	@ResponseBody
-	public Map<String, Object> retrieveReport(@RequestParam(required = false, value = "displayNumberMatched")
-	Integer maxNumberMatched, @RequestParam(required = false, value = "displayNumberMatched")
-	Integer maxNumberUnMatched)
+	public Map<String, Object> retrieveReport(@PathVariable
+	String mapped, @RequestParam(required = false, value = "maxNumber")
+	String maxNumberOption)
 	{
 		Map<String, Object> results = new HashMap<String, Object>();
-		List<RecodeResponse> listOfMapped = new ArrayList<RecodeResponse>(codingState.getMappedActivities().values());
-		List<RecodeResponse> listOfUnMapped = new ArrayList<RecodeResponse>(codingState.getRawActivities().values());
-
-		Collections.sort(listOfMapped);
-		Collections.sort(listOfUnMapped);
-
-		int displaySizeMatched = 100;
-		if (maxNumberMatched != null)
+		try
 		{
-			displaySizeMatched = maxNumberMatched > displaySizeMatched ? maxNumberMatched : displaySizeMatched;
+			boolean isMapped = Boolean.parseBoolean(mapped);
+			int maxNumber = isMapped ? 100 : 10;
+			List<RecodeResponse> values = new ArrayList<RecodeResponse>(isMapped ? codingState.getMappedActivities()
+					.values() : codingState.getRawActivities().values());
+			Collections.sort(values);
+			if (!StringUtils.isEmpty(maxNumberOption))
+			{
+				if (maxNumberOption.equalsIgnoreCase("all")) maxNumber = values.size();
+				else if (maxNumberOption.matches("[0-9]+")) maxNumber = Integer.parseInt(maxNumberOption);
+			}
+			else
+			{
+				maxNumber = isMapped ? 100 : 10;
+			}
+
+			results.put("results", values.subList(0, maxNumber <= values.size() ? maxNumber : values.size()));
+			results.put("maxNumber", maxNumberOption);
 		}
-
-		results.put(
-				"matched",
-				listOfMapped.subList(0,
-						displaySizeMatched <= listOfMapped.size() ? displaySizeMatched : listOfMapped.size()));
-
-		int displaySizeUmatched = 10;
-		if (maxNumberUnMatched != null)
+		catch (Exception e)
 		{
-			displaySizeUmatched = maxNumberUnMatched > displaySizeUmatched ? maxNumberUnMatched : displaySizeUmatched;
+			throw new RuntimeException(e.getMessage());
 		}
-		results.put("unmatched", listOfUnMapped.subList(0,
-				displaySizeUmatched <= listOfUnMapped.size() ? displaySizeUmatched : listOfUnMapped.size()));
 
 		return results;
 	}
