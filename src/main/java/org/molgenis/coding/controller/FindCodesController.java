@@ -79,7 +79,7 @@ public class FindCodesController
 				&& request.get("query") != null && request.containsKey("documentId")
 				&& request.get("documentId") != null)
 		{
-			Map<String, Object> data = ViewRecodeController.convertData(request.get("data"));
+			Map<String, Object> data = ViewRecodeController.convertObjectToMap(request.get("data"));
 			String query = request.get("query").toString();
 			String documentId = request.get("documentId").toString();
 			results.put("data", data);

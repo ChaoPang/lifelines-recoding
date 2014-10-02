@@ -7,9 +7,7 @@ import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.io.FileReader;
 import java.io.IOException;
-import java.io.LineNumberReader;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -132,7 +130,9 @@ public class ViewRecodeController
 
 	@RequestMapping(value = "/retrieve", method = RequestMethod.GET, produces = APPLICATION_JSON_VALUE)
 	@ResponseBody
-	public Map<String, Object> retrieveReport()
+	public Map<String, Object> retrieveReport(@RequestParam(required = false, value = "displayNumberMatched")
+	Integer maxNumberMatched, @RequestParam(required = false, value = "displayNumberMatched")
+	Integer maxNumberUnMatched)
 	{
 		Map<String, Object> results = new HashMap<String, Object>();
 		List<RecodeResponse> listOfMapped = new ArrayList<RecodeResponse>(codingState.getMappedActivities().values());
@@ -141,8 +141,24 @@ public class ViewRecodeController
 		Collections.sort(listOfMapped);
 		Collections.sort(listOfUnMapped);
 
-		results.put("matched", listOfMapped.subList(0, listOfMapped.size() <= 100 ? listOfMapped.size() : 100));
-		results.put("unmatched", listOfUnMapped.subList(0, listOfUnMapped.size() <= 10 ? listOfUnMapped.size() : 10));
+		int displaySizeMatched = 100;
+		if (maxNumberMatched != null)
+		{
+			displaySizeMatched = maxNumberMatched > displaySizeMatched ? maxNumberMatched : displaySizeMatched;
+		}
+
+		results.put(
+				"matched",
+				listOfMapped.subList(0,
+						displaySizeMatched <= listOfMapped.size() ? displaySizeMatched : listOfMapped.size()));
+
+		int displaySizeUmatched = 10;
+		if (maxNumberUnMatched != null)
+		{
+			displaySizeUmatched = maxNumberUnMatched > displaySizeUmatched ? maxNumberUnMatched : displaySizeUmatched;
+		}
+		results.put("unmatched", listOfUnMapped.subList(0,
+				displaySizeUmatched <= listOfUnMapped.size() ? displaySizeUmatched : listOfUnMapped.size()));
 
 		return results;
 	}
@@ -181,7 +197,7 @@ public class ViewRecodeController
 				&& request.containsKey("documentId") && request.get("documentId") != null && request.containsKey("add")
 				&& request.get("add") != null)
 		{
-			Map<String, Object> data = convertData(request.get("data"));
+			Map<String, Object> data = convertObjectToMap(request.get("data"));
 			if (data.containsKey(ElasticSearchImp.DEFAULT_NAME_FIELD)
 					&& data.get(ElasticSearchImp.DEFAULT_NAME_FIELD) != null
 					&& data.containsKey(ElasticSearchImp.DEFAULT_CODE_FIELD)
@@ -411,11 +427,7 @@ public class ViewRecodeController
 		{
 			List<String> columnHeaders = new ArrayList<String>();
 			columnHeaders.addAll(ALLOWED_COLUMNS);
-			columnHeaders.add("code");
-			columnHeaders.add("codename");
-			columnHeaders.add("codesystem");
-			columnHeaders.add("similarity");
-
+			columnHeaders.addAll(Arrays.asList("code", "codename", "codesystem", "similarity"));
 			File fileForSummaryTable = new File(property + "recoding-download-" + dateFormat.format(new Date())
 					+ ".0.csv");
 			CsvWriter summaryCsvWritier = new CsvWriter(fileForSummaryTable);
@@ -490,40 +502,6 @@ public class ViewRecodeController
 		}
 	}
 
-	public static Map<String, Object> translateDataToMap(Map<String, Object> data, String query)
-	{
-		Map<String, Object> doc = new HashMap<String, Object>();
-		doc.put(ElasticSearchImp.DEFAULT_NAME_FIELD, query);
-		doc.put(ElasticSearchImp.DEFAULT_CODE_FIELD, data.get(ElasticSearchImp.DEFAULT_CODE_FIELD));
-		doc.put(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD, data.get(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD));
-		return doc;
-	}
-
-	private void zipFile(ZipOutputStream zipOutputStream, List<String> filePaths) throws IOException
-	{
-
-		byte[] buffer = new byte[128];
-		for (String filePath : filePaths)
-		{
-			File file = new File(filePath);
-			if (file.exists())
-			{
-				ZipEntry zipEntry = new ZipEntry(file.getName());
-				FileInputStream fis = new FileInputStream(file);
-				zipOutputStream.putNextEntry(zipEntry);
-
-				int read = 0;
-				while ((read = fis.read(buffer)) != -1)
-				{
-					zipOutputStream.write(buffer, 0, read);
-				}
-
-				zipOutputStream.closeEntry();
-				fis.close();
-			}
-		}
-	}
-
 	@Async
 	private void processUploadedVariableData(MultipartFile file, String codeSystem) throws IOException
 	{
@@ -575,7 +553,6 @@ public class ViewRecodeController
 									{
 										if (hit.getScore().intValue() >= codingState.getThreshold())
 										{
-
 											if (!codingState.getMappedActivities().containsKey(activityName))
 											{
 												codingState.getMappedActivities().put(activityName,
@@ -629,7 +606,54 @@ public class ViewRecodeController
 		}
 	}
 
-	private File createFileOnServer(MultipartFile file) throws IOException
+	private boolean validateExcelColumnHeaders(EntityMetaData entityMetaData)
+	{
+		for (AttributeMetaData attribute : entityMetaData.getAttributes())
+		{
+			if (!attribute.getName().toLowerCase().equals("identifier")
+					&& !attribute.getName().toLowerCase().startsWith("name"))
+			{
+				return false;
+			}
+		}
+		return true;
+	}
+
+	public static Map<String, Object> translateDataToMap(Map<String, Object> data, String query)
+	{
+		Map<String, Object> doc = new HashMap<String, Object>();
+		doc.put(ElasticSearchImp.DEFAULT_NAME_FIELD, query);
+		doc.put(ElasticSearchImp.DEFAULT_CODE_FIELD, data.get(ElasticSearchImp.DEFAULT_CODE_FIELD));
+		doc.put(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD, data.get(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD));
+		return doc;
+	}
+
+	public static void zipFile(ZipOutputStream zipOutputStream, List<String> filePaths) throws IOException
+	{
+
+		byte[] buffer = new byte[128];
+		for (String filePath : filePaths)
+		{
+			File file = new File(filePath);
+			if (file.exists())
+			{
+				ZipEntry zipEntry = new ZipEntry(file.getName());
+				FileInputStream fis = new FileInputStream(file);
+				zipOutputStream.putNextEntry(zipEntry);
+
+				int read = 0;
+				while ((read = fis.read(buffer)) != -1)
+				{
+					zipOutputStream.write(buffer, 0, read);
+				}
+
+				zipOutputStream.closeEntry();
+				fis.close();
+			}
+		}
+	}
+
+	public static File createFileOnServer(MultipartFile file) throws IOException
 	{
 		String rootPath = System.getProperty("java.io.tmpdir");
 		File dir = new File(rootPath + File.separator + "tmpFiles");
@@ -645,20 +669,7 @@ public class ViewRecodeController
 
 	}
 
-	private boolean validateExcelColumnHeaders(EntityMetaData entityMetaData)
-	{
-		for (AttributeMetaData attribute : entityMetaData.getAttributes())
-		{
-			if (!attribute.getName().toLowerCase().equals("identifier")
-					&& !attribute.getName().toLowerCase().startsWith("name"))
-			{
-				return false;
-			}
-		}
-		return true;
-	}
-
-	public static Map<String, Object> convertData(Object data)
+	public static Map<String, Object> convertObjectToMap(Object data)
 	{
 		Map<String, Object> map = new HashMap<String, Object>();
 
@@ -671,23 +682,23 @@ public class ViewRecodeController
 		}
 		return map;
 	}
-
-	public static int getLineNumber(File file) throws IOException
-	{
-		int lineNumber = 0;
-		if (file.exists())
-		{
-			LineNumberReader lnr = new LineNumberReader(new FileReader(file));
-			try
-			{
-				lnr.skip(Long.MAX_VALUE);
-				lineNumber = lnr.getLineNumber();
-			}
-			finally
-			{
-				lnr.close();
-			}
-		}
-		return lineNumber;
-	}
+	//
+	// public static int getLineNumber(File file) throws IOException
+	// {
+	// int lineNumber = 0;
+	// if (file.exists())
+	// {
+	// LineNumberReader lnr = new LineNumberReader(new FileReader(file));
+	// try
+	// {
+	// lnr.skip(Long.MAX_VALUE);
+	// lineNumber = lnr.getLineNumber();
+	// }
+	// finally
+	// {
+	// lnr.close();
+	// }
+	// }
+	// return lineNumber;
+	// }
 }
