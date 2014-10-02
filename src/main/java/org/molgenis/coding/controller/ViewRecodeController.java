@@ -51,8 +51,6 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/recode")
 public class ViewRecodeController
 {
-	private boolean isRecoding = false;
-
 	private final static String VIEW_NAME = "view-recode-report";
 	private final static String UNKNOWN_CODE = "99999";
 	private final static String UNKNOWN_CODE_NAME = "Unknown";
@@ -86,7 +84,7 @@ public class ViewRecodeController
 	{
 		model.addAttribute("selectedCodeSystem", codingState.getSelectedCodeSystem());
 		model.addAttribute("threshold", codingState.getThreshold());
-		model.addAttribute("hidForm", isRecoding);
+		model.addAttribute("hidForm", codingState.isCoding());
 		model.addAttribute("viewId", VIEW_NAME);
 		model.addAttribute("isBackup", backupCodesInState.isBackupRunning());
 		model.addAttribute("isUploading", processVariableUtil.isUploading());
@@ -99,7 +97,6 @@ public class ViewRecodeController
 	{
 		if (codingState.getRawActivities().size() == 0)
 		{
-			isRecoding = false;
 			codingState.clearState();
 		}
 		return "redirect:/recode";
@@ -116,7 +113,7 @@ public class ViewRecodeController
 	@ResponseBody
 	public Map<String, Object> recovery()
 	{
-		isRecoding = true;
+		codingState.setCoding(true);
 		return backupCodesInState.recovery();
 	}
 
@@ -409,7 +406,7 @@ public class ViewRecodeController
 		if (!file.isEmpty() && !StringUtils.isEmpty(codeSystem))
 		{
 			processVariableUtil.processUploadedVariableData(file, codeSystem);
-			isRecoding = true;
+			codingState.setCoding(true);
 		}
 		return "redirect:/recode";
 	}

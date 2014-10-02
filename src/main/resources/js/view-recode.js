@@ -107,7 +107,7 @@
 							var iconButton = $('<button class="btn" type="button"><i class="icon-pencil"></i></button>');
 							$('<td />').css('text-align', 'center').append(iconButton).appendTo(row);
 							iconButton.click(function(){
-								resultContainer.find('div.row-fluid:gt(0)').remove();
+								resultContainer.find('div.row-fluid:gt(1)').remove();
 								molgenis.findCode(recodeResponse.queryString, null, codeSystem, function(data){
 									table.remove();
 									var default_options = {
@@ -121,6 +121,7 @@
 									var matchButton = $('<button class="btn" type="button"><i class="icon-search"></i></button>');
 									var clearButton = $('<button class="btn" type="button"><i class="icon-trash"></i></button>');
 									var customSearchGroup = $('<div />').addClass('input-append').css('float','right').append(inputTextQuery).append(matchButton).append(clearButton);
+									default_options.parentElement.append('<div class="row-fluid"><legend></legend></div>');
 									var controlDiv = $('<div class="row-fluid"></div>').appendTo(default_options.parentElement);
 									
 									$('<div />').addClass('span6').append('Original text : <strong>' + recodeResponse.queryString + '</strong>').appendTo(controlDiv);
@@ -156,7 +157,7 @@
 					var selectController = $('<select name="maxNumber"><option id="option-10">10</option><option id="option-100">100</option><option id="option-500">500</option><option id="option-All">All</option></select>').css('float','right');
 					selectController.find('#option-' + maxNumber).attr('selected', true);
 					var layoutDiv = $('<div />').addClass('row-fluid').append('<span class="large-text"><strong>' + (matched ? 'Matched results' : 'Unmatched results') + '</strong></span>').append(selectController).append('<br><br>').append(table);
-					resultContainer.empty().append(layoutDiv);
+					resultContainer.empty().append('<div class="row-fluid"><legend></legend></div>').append(layoutDiv);
 					selectController.change(function(){
 						molgenis.retrieveResult(controlContainer, resultContainer, codeSystem, isMapped, true,  $(this).val());
 					});

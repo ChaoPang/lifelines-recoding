@@ -81,6 +81,7 @@ public class CodingState
 
 	public void clearState()
 	{
+		isCoding = false;
 		rawActivities.clear();
 		mappedActivities.clear();
 		maxNumColumns.clear();

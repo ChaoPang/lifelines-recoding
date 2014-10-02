@@ -36,6 +36,7 @@ public class ProcessVariableUtil
 	private final CodingState codingState;
 	private final NGramService nGramService;
 
+	private final AtomicInteger isProcessRunning = new AtomicInteger();
 	private final AtomicInteger totalLineNumber = new AtomicInteger();
 	private final AtomicInteger finishedLineNumber = new AtomicInteger();
 
@@ -52,7 +53,7 @@ public class ProcessVariableUtil
 
 	public boolean isUploading()
 	{
-		return totalLineNumber.get() > 0;
+		return isProcessRunning.get() > 0;
 	}
 
 	public int percentage()
@@ -67,6 +68,7 @@ public class ProcessVariableUtil
 	@Async
 	public void processUploadedVariableData(MultipartFile file, String codeSystem) throws IOException
 	{
+		isProcessRunning.incrementAndGet();
 		CsvRepository csvRepository = null;
 		try
 		{
@@ -149,6 +151,7 @@ public class ProcessVariableUtil
 			if (csvRepository != null) csvRepository.close();
 			totalLineNumber.set(0);
 			finishedLineNumber.set(0);
+			isProcessRunning.decrementAndGet();
 		}
 	}
 
