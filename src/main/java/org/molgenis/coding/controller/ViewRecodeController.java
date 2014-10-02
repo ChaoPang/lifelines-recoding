@@ -3,13 +3,9 @@ package org.molgenis.coding.controller;
 import static org.springframework.http.HttpStatus.OK;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
-import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.FileReader;
 import java.io.IOException;
-import java.io.LineNumberReader;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -17,7 +13,6 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -29,7 +24,6 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.log4j.Logger;
 import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
 import org.molgenis.coding.backup.BackupCodesInState;
 import org.molgenis.coding.elasticsearch.CodingState;
@@ -37,18 +31,11 @@ import org.molgenis.coding.elasticsearch.ElasticSearchImp;
 import org.molgenis.coding.elasticsearch.Hit;
 import org.molgenis.coding.elasticsearch.SearchService;
 import org.molgenis.coding.ngram.NGramService;
+import org.molgenis.coding.util.ProcessVariableUtil;
 import org.molgenis.coding.util.RecodeResponse;
-import org.molgenis.data.AttributeMetaData;
-import org.molgenis.data.Entity;
-import org.molgenis.data.EntityMetaData;
-import org.molgenis.data.csv.CsvRepository;
 import org.molgenis.data.csv.CsvWriter;
-import org.molgenis.data.processor.CellProcessor;
-import org.molgenis.data.processor.LowerCaseProcessor;
-import org.molgenis.data.processor.TrimProcessor;
 import org.molgenis.data.support.MapEntity;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -74,23 +61,24 @@ public class ViewRecodeController
 	private final NGramService nGramService;
 	private final CodingState codingState;
 	private final BackupCodesInState backupCodesInState;
+	private final ProcessVariableUtil processVariableUtil;
 
 	private final static List<String> ALLOWED_COLUMNS = Arrays.asList("identifier", "name");
-	private final static Logger logger = Logger.getLogger(ViewRecodeController.class);
 
 	@Autowired
 	public ViewRecodeController(SearchService elasticSearchImp, NGramService nGramService, CodingState codingState,
-			BackupCodesInState backupCodesInState)
+			BackupCodesInState backupCodesInState, ProcessVariableUtil processVariableUtil)
 	{
 		if (elasticSearchImp == null) throw new IllegalArgumentException("ElasticSearch is null");
 		if (nGramService == null) throw new IllegalArgumentException("NGramService is null");
 		if (codingState == null) throw new IllegalArgumentException("CodingState is null");
 		if (backupCodesInState == null) throw new IllegalArgumentException("BackupCodesInState is null");
+		if (processVariableUtil == null) throw new IllegalArgumentException("ProcessVariableUtil is null");
 		this.elasticSearchImp = elasticSearchImp;
 		this.nGramService = nGramService;
 		this.codingState = codingState;
 		this.backupCodesInState = backupCodesInState;
-
+		this.processVariableUtil = processVariableUtil;
 	}
 
 	@RequestMapping(method = RequestMethod.GET)
@@ -101,7 +89,8 @@ public class ViewRecodeController
 		model.addAttribute("hidForm", isRecoding);
 		model.addAttribute("viewId", VIEW_NAME);
 		model.addAttribute("isBackup", backupCodesInState.isBackupRunning());
-
+		model.addAttribute("isUploading", processVariableUtil.isUploading());
+		model.addAttribute("percentage", processVariableUtil.percentage());
 		return VIEW_NAME;
 	}
 
@@ -419,7 +408,8 @@ public class ViewRecodeController
 	{
 		if (!file.isEmpty() && !StringUtils.isEmpty(codeSystem))
 		{
-			processUploadedVariableData(file, codeSystem);
+			processVariableUtil.processUploadedVariableData(file, codeSystem);
+			isRecoding = true;
 		}
 		return "redirect:/recode";
 	}
@@ -515,106 +505,8 @@ public class ViewRecodeController
 		}
 	}
 
-	@Async
-	private void processUploadedVariableData(MultipartFile file, String codeSystem) throws IOException
-	{
-		CsvRepository csvRepository = null;
-		try
-		{
-			codingState.setSelectedCodeSystem(codeSystem);
-
-			File serverFile = createFileOnServer(file);
-
-			if (serverFile.exists())
-			{
-				csvRepository = new CsvRepository(new File(serverFile.getAbsolutePath()),
-						Arrays.<CellProcessor> asList(new LowerCaseProcessor(), new TrimProcessor()), ';');
-
-				if (validateExcelColumnHeaders(csvRepository.getEntityMetaData()))
-				{
-					// Map to store the activity name with corresponding
-					// individuals
-					Iterator<Entity> iterator = csvRepository.iterator();
-
-					codingState.addColumns(csvRepository.getEntityMetaData().getAttributes());
-
-					Date indexedDate = new Date();
-
-					while (iterator.hasNext())
-					{
-						Entity entity = iterator.next();
-						String individualIdentifier = entity.getString("Identifier");
-						codingState.addInvalidIndividuals(individualIdentifier);
-
-						for (int columnIndex = 0; columnIndex < codingState.getMaxNumColumns().size(); columnIndex++)
-						{
-							String columnName = codingState.getMaxNumColumns().get(columnIndex);
-
-							if (columnName.equalsIgnoreCase("identifier")) continue;
-
-							if (columnName.toLowerCase().startsWith("name"))
-							{
-								String activityName = entity.getString(columnName);
-
-								if (!StringUtils.isEmpty(individualIdentifier) && !StringUtils.isEmpty(activityName))
-								{
-									codingState.removeInvalidIndividuals(individualIdentifier);
-									List<Hit> searchHits = elasticSearchImp.search(codeSystem, activityName, null);
-									nGramService.calculateNGramSimilarity(activityName, "name", searchHits);
-									for (Hit hit : searchHits)
-									{
-										Map<String, RecodeResponse> activities = hit.getScore().intValue() >= codingState
-												.getThreshold() ? codingState.getMappedActivities() : codingState
-												.getRawActivities();
-										if (!activities.containsKey(activityName))
-										{
-											activities.put(activityName, new RecodeResponse(activityName, hit));
-										}
-										if (!activities.get(activityName).getIdentifiers()
-												.containsKey(individualIdentifier))
-										{
-											activities.get(activityName).getIdentifiers()
-													.put(individualIdentifier, new HashSet<Integer>());
-										}
-										activities.get(activityName).getIdentifiers().get(individualIdentifier)
-												.add(columnIndex);
-										activities.get(activityName).setAddedDate(indexedDate);
-										break;
-									}
-								}
-							}
-						}
-					}
-					isRecoding = true;
-				}
-			}
-		}
-		catch (Throwable e)
-		{
-			codingState.clearState();
-		}
-		finally
-		{
-			if (csvRepository != null) csvRepository.close();
-		}
-	}
-
-	private boolean validateExcelColumnHeaders(EntityMetaData entityMetaData)
-	{
-		for (AttributeMetaData attribute : entityMetaData.getAttributes())
-		{
-			if (!attribute.getName().toLowerCase().equals("identifier")
-					&& !attribute.getName().toLowerCase().startsWith("name"))
-			{
-				return false;
-			}
-		}
-		return true;
-	}
-
 	// ######################## static helper method
 	// ############################
-
 	public static Map<String, Object> convertObjectToMap(Object data)
 	{
 		Map<String, Object> map = new HashMap<String, Object>();
@@ -661,40 +553,5 @@ public class ViewRecodeController
 				fis.close();
 			}
 		}
-	}
-
-	public static File createFileOnServer(MultipartFile file) throws IOException
-	{
-		String rootPath = System.getProperty("java.io.tmpdir");
-		File dir = new File(rootPath + File.separator + "tmpFiles");
-		if (!dir.exists()) dir.mkdirs();
-		// Create the file on server
-		File serverFile = new File(dir.getAbsolutePath() + File.separator + file.getName() + ".csv");
-
-		BufferedOutputStream stream = new BufferedOutputStream(new FileOutputStream(serverFile));
-		stream.write(file.getBytes());
-		stream.close();
-		logger.info("The uploaded file path is : " + serverFile.getAbsolutePath());
-		return serverFile;
-
-	}
-
-	public static int getLineNumber(File file) throws IOException
-	{
-		int lineNumber = 0;
-		if (file.exists())
-		{
-			LineNumberReader lnr = new LineNumberReader(new FileReader(file));
-			try
-			{
-				lnr.skip(Long.MAX_VALUE);
-				lineNumber = lnr.getLineNumber();
-			}
-			finally
-			{
-				lnr.close();
-			}
-		}
-		return lineNumber;
 	}
 }

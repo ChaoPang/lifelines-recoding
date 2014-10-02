@@ -8,6 +8,7 @@ import org.molgenis.coding.elasticsearch.CodingState;
 import org.molgenis.coding.elasticsearch.SearchService;
 import org.molgenis.coding.ngram.NGramService;
 import org.molgenis.coding.util.DutchNGramAlgorithm;
+import org.molgenis.coding.util.ProcessVariableUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
@@ -41,6 +42,9 @@ public class WebAppConfig extends WebMvcConfigurerAdapter
 
 	@Autowired
 	private SearchService elasticSearchImp;
+
+	@Autowired
+	private NGramService nGramService;
 
 	@Autowired
 	private BackupCodesInState backupCodesInState;
@@ -77,6 +81,12 @@ public class WebAppConfig extends WebMvcConfigurerAdapter
 	public BackupCodesInState backupCodesInState()
 	{
 		return new BackupCodesInState(elasticSearchImp, codingState);
+	}
+
+	@Bean
+	public ProcessVariableUtil processVariableUtil()
+	{
+		return new ProcessVariableUtil(elasticSearchImp, codingState, nGramService);
 	}
 
 	/**

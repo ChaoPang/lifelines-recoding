@@ -90,10 +90,31 @@
 		molgenis.checkBackup($('#backup-check'));
 	});
 </script>
-<#elseif isBackup ?? && isBackup >
-<div class="row-fluid">
+<#elseif isBackup ?? && isBackup>
+<div class="row-fluid" style="margin-top:200px;">
 	<div class="span12">
-		<center>The backup is running now, please be patient!</center>
+		<center>The coded data is being backed up now, please be patient!</center>
+	</div>
+</div>
+<script>
+	$(document).ready(function(){
+		setTimeout(function(){
+			location.reload();
+		}, 5000);
+	});
+</script>
+<#elseif isUploading ?? && isUploading>
+<div class="row-fluid" style="margin-top:200px;">
+	<div class="span12">
+		<center>The file is being uploaded now, please be patient!</center>
+		<br><br>
+	</div>
+</div>
+<div class="row-fluid">
+	<div class="offset3 span6">
+		<div class="progress progress-striped active">
+		  <div class="bar" style="width:${percentage}%;"></div>
+		</div>
 	</div>
 </div>
 <script>

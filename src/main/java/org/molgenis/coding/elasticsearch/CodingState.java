@@ -19,6 +19,7 @@ public class CodingState
 
 	private Integer threshold = 80;
 	private String selectedCodeSystem = null;
+	private boolean isCoding = false;
 
 	public Integer getThreshold()
 	{
@@ -84,5 +85,15 @@ public class CodingState
 		mappedActivities.clear();
 		maxNumColumns.clear();
 		invalidIndividuals.clear();
+	}
+
+	public boolean isCoding()
+	{
+		return isCoding;
+	}
+
+	public void setCoding(boolean isCoding)
+	{
+		this.isCoding = isCoding;
 	}
 }
