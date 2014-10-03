@@ -68,10 +68,9 @@ public class BackupCodesInState
 	{
 		isBackup.incrementAndGet();
 		if ((codingState.getMappedActivities().size() != 0 || codingState.getRawActivities().size() != 0)
-				&& !isRecoveryRunning() && !StringUtils.isEmpty(codingState.getCodingJobName())
+				&& !isRecoveryRunning() && !isBackupRunning() && !StringUtils.isEmpty(codingState.getCodingJobName())
 				&& !StringUtils.isEmpty(codingState.getSelectedCodeSystem()))
 		{
-
 			String createBackupName = createBackupName(codingState.getCodingJobName());
 			String createBackupInfo = createBackupInfo(codingState.getCodingJobName());
 
