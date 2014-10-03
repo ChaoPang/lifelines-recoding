@@ -137,9 +137,10 @@
 		<div class="span12">
 		<center><h3>Report for recoding</h3></center>
 		</div>
-	</div><br><br>
+		<br><br><br>
+	</div>
 	<div class="row-fluid">
-		<div class="offset4 span4">
+		<div class="offset3 span6">
 			<div class="row-fluid">
 				<div class="span6">
 					Current threshold : ${threshold}%
@@ -152,7 +153,7 @@
 		</div>
 	</div>
 	<div class="row-fluid">
-		<div class="offset4 span4 well">
+		<div class="offset3 span6 well">
 			<div id="matched-container" class="row-fluid">
 				<div class="span8">
 					The total number of matched items is <strong><span id="total-matched"></span></strong>
@@ -171,7 +172,7 @@
 		</div>
 	</div>
 	<div class="row-fluid">
-		<div id="result-container"></div>
+		<div id="result-container" class="offset2 span8"></div>
 	</div>
 </form>
 <script>

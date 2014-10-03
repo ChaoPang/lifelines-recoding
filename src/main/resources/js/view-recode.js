@@ -61,10 +61,7 @@
 				var showResultButton = $('<button class="btn ' + (matched ? 'btn-primary' : 'btn-info') + '" type="button" style=float:right;>Show result</button>');
 				$('<div />').addClass('span4 control-button-div').append(showResultButton).appendTo(parentElement);
 				showResultButton.click(function(){
-					if(matched){
-						$(resultContainer).removeClass('offset3 span6').addClass('offset2 span8');
-					}else{
-						$(resultContainer).removeClass('offset2 span8').addClass('offset3 span6');
+					if(!matched){
 						//sort by score only when results are not matched yet
 						matchingResults = matchingResults.sort(function(a,b){
 							return molgenis.naturalSort(b.hit.score, a.hit.score);
