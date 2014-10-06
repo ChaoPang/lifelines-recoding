@@ -60,7 +60,7 @@
 	</div>
 	<div class="row-fluid">
 		<div class="span12">
-			<center>Upload a dataset that needs to be recoded in <u>excel</u> format. Please include individual identifiers in dataset for reference.</center>
+			<center>Upload a dataset that needs to be recoded in <u>csv</u> format. Please include individual identifiers in dataset for reference.</center>
 		</div>
 	</div><br>
 	<div class="row-fluid">
