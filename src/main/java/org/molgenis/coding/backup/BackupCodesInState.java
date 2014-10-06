@@ -66,49 +66,52 @@ public class BackupCodesInState
 	@Async
 	public void index(boolean clear) throws IOException
 	{
-		isBackup.incrementAndGet();
-		if ((codingState.getMappedActivities().size() != 0 || codingState.getRawActivities().size() != 0)
-				&& !isRecoveryRunning() && !isBackupRunning() && !StringUtils.isEmpty(codingState.getCodingJobName())
-				&& !StringUtils.isEmpty(codingState.getSelectedCodeSystem()))
+		if (!isRecoveryRunning() && !isBackupRunning())
 		{
-			String createBackupName = createBackupName(codingState.getCodingJobName());
-			String createBackupInfo = createBackupInfo(codingState.getCodingJobName());
-
-			List<Hit> hits = elasticSearchImp.exactMatch(BACKUP_DOCUMENT_TYPE, codingState.getCodingJobName(),
-					ElasticSearchImp.DEFAULT_NAME_FIELD);
-
-			if (hits.size() > 0)
+			isBackup.incrementAndGet();
+			if ((codingState.getMappedActivities().size() != 0 || codingState.getRawActivities().size() != 0)
+					&& !StringUtils.isEmpty(codingState.getCodingJobName())
+					&& !StringUtils.isEmpty(codingState.getSelectedCodeSystem()))
 			{
-				elasticSearchImp.deleteDocumentsByType(createBackupName);
-				elasticSearchImp.deleteDocumentsByType(createBackupInfo);
-				for (Hit hit : hits)
+				String createBackupName = createBackupName(codingState.getCodingJobName());
+				String createBackupInfo = createBackupInfo(codingState.getCodingJobName());
+
+				List<Hit> hits = elasticSearchImp.exactMatch(BACKUP_DOCUMENT_TYPE, codingState.getCodingJobName(),
+						ElasticSearchImp.DEFAULT_NAME_FIELD);
+
+				if (hits.size() > 0)
 				{
-					elasticSearchImp.deleteDocumentById(hit.getDocumentId(), BACKUP_DOCUMENT_TYPE);
+					elasticSearchImp.deleteDocumentsByType(createBackupName);
+					elasticSearchImp.deleteDocumentsByType(createBackupInfo);
+					for (Hit hit : hits)
+					{
+						elasticSearchImp.deleteDocumentById(hit.getDocumentId(), BACKUP_DOCUMENT_TYPE);
+					}
 				}
+
+				elasticSearchImp.indexRepository(new BackupRepository(codingState.getMappedActivities().values(),
+						createBackupName, true));
+
+				elasticSearchImp.indexRepository(new BackupRepository(codingState.getRawActivities().values(),
+						createBackupName, false));
+
+				Map<String, Object> doc = new HashMap<String, Object>();
+				doc.put(IDENTIFIERS_FIELD, codingState.getInvalidIndividuals());
+				doc.put(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD, codingState.getSelectedCodeSystem());
+				doc.put(THRESHOLD_FIELD, codingState.getThreshold());
+				doc.put(INPUT_COLUMN_FIELD, codingState.getMaxNumColumns());
+				elasticSearchImp.indexDocument(doc, createBackupInfo);
+
+				Map<String, Object> backupEntry = new HashMap<String, Object>();
+				backupEntry.put(ElasticSearchImp.DEFAULT_NAME_FIELD, codingState.getCodingJobName());
+				backupEntry.put(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD, codingState.getSelectedCodeSystem());
+				backupEntry.put(ADDED_DATE_FIELD, new Date().getTime());
+				elasticSearchImp.indexDocument(backupEntry, BACKUP_DOCUMENT_TYPE);
 			}
+			isBackup.decrementAndGet();
 
-			elasticSearchImp.indexRepository(new BackupRepository(codingState.getMappedActivities().values(),
-					createBackupName, true));
-
-			elasticSearchImp.indexRepository(new BackupRepository(codingState.getRawActivities().values(),
-					createBackupName, false));
-
-			Map<String, Object> doc = new HashMap<String, Object>();
-			doc.put(IDENTIFIERS_FIELD, codingState.getInvalidIndividuals());
-			doc.put(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD, codingState.getSelectedCodeSystem());
-			doc.put(THRESHOLD_FIELD, codingState.getThreshold());
-			doc.put(INPUT_COLUMN_FIELD, codingState.getMaxNumColumns());
-			elasticSearchImp.indexDocument(doc, createBackupInfo);
-
-			Map<String, Object> backupEntry = new HashMap<String, Object>();
-			backupEntry.put(ElasticSearchImp.DEFAULT_NAME_FIELD, codingState.getCodingJobName());
-			backupEntry.put(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD, codingState.getSelectedCodeSystem());
-			backupEntry.put(ADDED_DATE_FIELD, new Date().getTime());
-			elasticSearchImp.indexDocument(backupEntry, BACKUP_DOCUMENT_TYPE);
+			if (clear) codingState.clearState();
 		}
-		isBackup.decrementAndGet();
-
-		if (clear) codingState.clearState();
 	}
 
 	public boolean checkBackupByName(String codingJobName)
@@ -126,117 +129,121 @@ public class BackupCodesInState
 
 	public Map<String, Object> recovery(String codingJobName)
 	{
-		if (StringUtils.isEmpty(codingJobName)) return Collections.emptyMap();
 		Map<String, Object> result = new HashMap<String, Object>();
-		result.put("success", true);
-		try
+		if (!isRecoveryRunning() && !isBackupRunning())
 		{
-			codingState.clearState();
-			codingState.setCoding(true);
-			codingState.setCodingJobName(codingJobName);
-			isRecovering.incrementAndGet();
-			List<Hit> backUpHits = elasticSearchImp.search(createBackupName(codingJobName), null, null);
-			if (backUpHits.size() > 0)
+			if (StringUtils.isEmpty(codingJobName)) return Collections.emptyMap();
+			result.put("success", true);
+			try
 			{
-				for (Hit backUpHit : backUpHits)
+				codingState.clearState();
+				codingState.setCoding(true);
+				codingState.setCodingJobName(codingJobName);
+				isRecovering.incrementAndGet();
+				List<Hit> backUpHits = elasticSearchImp.search(createBackupName(codingJobName), null, null);
+				if (backUpHits.size() > 0)
 				{
-					Map<String, Object> columnValueMap = backUpHit.getColumnValueMap();
-					String queryString = columnValueMap.get(QUERYSTRING_FIELD).toString();
-					String documentId = columnValueMap.get(DOCUMENT_ID_FIELD).toString();
-					Float ngramScore = Float.parseFloat(columnValueMap.get(SCORE_FIELD).toString());
-					Object documentDataObject = columnValueMap.get(DOCUMENT_DATA_FIELD);
-					Object identifiersObject = columnValueMap.get(IDENTIFIERS_FIELD);
-					Object isCustomSearched = columnValueMap.get(IS_CUSTOM_SEARCHED_FIELD);
-					Object isFinalized = columnValueMap.get(IS_FINALIZED_FIELD);
-					Object addedDate = columnValueMap.get(ADDED_DATE_FIELD);
-					Object addedDateString = columnValueMap.get(ADDED_DATE_STRING_FIELD);
-					Map<String, Object> documentDataMap = new HashMap<String, Object>();
-					Map<String, Set<Integer>> identifierMap = new HashMap<String, Set<Integer>>();
-
-					if (documentDataObject instanceof Map<?, ?>)
+					for (Hit backUpHit : backUpHits)
 					{
-						for (Entry<?, ?> entry : ((Map<?, ?>) documentDataObject).entrySet())
-						{
-							documentDataMap.put(entry.getKey().toString(), entry.getValue());
-						}
-					}
+						Map<String, Object> columnValueMap = backUpHit.getColumnValueMap();
+						String queryString = columnValueMap.get(QUERYSTRING_FIELD).toString();
+						String documentId = columnValueMap.get(DOCUMENT_ID_FIELD).toString();
+						Float ngramScore = Float.parseFloat(columnValueMap.get(SCORE_FIELD).toString());
+						Object documentDataObject = columnValueMap.get(DOCUMENT_DATA_FIELD);
+						Object identifiersObject = columnValueMap.get(IDENTIFIERS_FIELD);
+						Object isCustomSearched = columnValueMap.get(IS_CUSTOM_SEARCHED_FIELD);
+						Object isFinalized = columnValueMap.get(IS_FINALIZED_FIELD);
+						Object addedDate = columnValueMap.get(ADDED_DATE_FIELD);
+						Object addedDateString = columnValueMap.get(ADDED_DATE_STRING_FIELD);
+						Map<String, Object> documentDataMap = new HashMap<String, Object>();
+						Map<String, Set<Integer>> identifierMap = new HashMap<String, Set<Integer>>();
 
-					if (identifiersObject instanceof Map<?, ?>)
-					{
-						for (Entry<?, ?> entry : ((Map<?, ?>) identifiersObject).entrySet())
+						if (documentDataObject instanceof Map<?, ?>)
 						{
-							Set<Integer> columnIndices = new HashSet<Integer>();
-							if (entry.getValue() instanceof List<?>)
+							for (Entry<?, ?> entry : ((Map<?, ?>) documentDataObject).entrySet())
 							{
-								for (Object columnIndex : (List<?>) entry.getValue())
-								{
-									columnIndices.add(Integer.parseInt(columnIndex.toString()));
-								}
+								documentDataMap.put(entry.getKey().toString(), entry.getValue());
 							}
-							identifierMap.put(entry.getKey().toString(), columnIndices);
+						}
+
+						if (identifiersObject instanceof Map<?, ?>)
+						{
+							for (Entry<?, ?> entry : ((Map<?, ?>) identifiersObject).entrySet())
+							{
+								Set<Integer> columnIndices = new HashSet<Integer>();
+								if (entry.getValue() instanceof List<?>)
+								{
+									for (Object columnIndex : (List<?>) entry.getValue())
+									{
+										columnIndices.add(Integer.parseInt(columnIndex.toString()));
+									}
+								}
+								identifierMap.put(entry.getKey().toString(), columnIndices);
+							}
+						}
+
+						Hit hit = new Hit(documentId.toString(), null, documentDataMap);
+						hit.setScore(ngramScore);
+						RecodeResponse recodeResponse = new RecodeResponse(queryString, hit);
+						recodeResponse.setCustomSearched(isCustomSearched != null ? Boolean
+								.parseBoolean(isCustomSearched.toString()) : null);
+						recodeResponse.setFinalSelection(isFinalized != null ? Boolean.parseBoolean(isFinalized
+								.toString()) : null);
+						recodeResponse.getIdentifiers().putAll(identifierMap);
+						recodeResponse.setAddedDate(new Date(Long.parseLong(addedDate.toString())));
+						recodeResponse.setDateString(addedDateString != null ? addedDateString.toString() : null);
+
+						if (Boolean.parseBoolean(columnValueMap.get(IS_MAPPED_FIELD).toString()))
+						{
+							codingState.getMappedActivities().put(queryString, recodeResponse);
+						}
+						else
+						{
+							codingState.getRawActivities().put(queryString, recodeResponse);
 						}
 					}
-
-					Hit hit = new Hit(documentId.toString(), null, documentDataMap);
-					hit.setScore(ngramScore);
-					RecodeResponse recodeResponse = new RecodeResponse(queryString, hit);
-					recodeResponse.setCustomSearched(isCustomSearched != null ? Boolean.parseBoolean(isCustomSearched
-							.toString()) : null);
-					recodeResponse
-							.setFinalSelection(isFinalized != null ? Boolean.parseBoolean(isFinalized.toString()) : null);
-					recodeResponse.getIdentifiers().putAll(identifierMap);
-					recodeResponse.setAddedDate(new Date(Long.parseLong(addedDate.toString())));
-					recodeResponse.setDateString(addedDateString != null ? addedDateString.toString() : null);
-
-					if (Boolean.parseBoolean(columnValueMap.get(IS_MAPPED_FIELD).toString()))
-					{
-						codingState.getMappedActivities().put(queryString, recodeResponse);
-					}
-					else
-					{
-						codingState.getRawActivities().put(queryString, recodeResponse);
-					}
 				}
-			}
 
-			List<Hit> identifierHits = elasticSearchImp.search(createBackupInfo(codingJobName), null, null);
-			if (identifierHits.size() > 0)
-			{
-				for (Hit hit : identifierHits)
+				List<Hit> identifierHits = elasticSearchImp.search(createBackupInfo(codingJobName), null, null);
+				if (identifierHits.size() > 0)
 				{
-					Object identifierObject = hit.getColumnValueMap().get(IDENTIFIERS_FIELD);
-					Object thresholdObject = hit.getColumnValueMap().get(THRESHOLD_FIELD);
-					Object codeSystemObject = hit.getColumnValueMap().get(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD);
-					Object inputColumnsObject = hit.getColumnValueMap().get(INPUT_COLUMN_FIELD);
-					if (identifierObject instanceof List<?>)
+					for (Hit hit : identifierHits)
 					{
-						for (Object identifier : (List<?>) identifierObject)
+						Object identifierObject = hit.getColumnValueMap().get(IDENTIFIERS_FIELD);
+						Object thresholdObject = hit.getColumnValueMap().get(THRESHOLD_FIELD);
+						Object codeSystemObject = hit.getColumnValueMap()
+								.get(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD);
+						Object inputColumnsObject = hit.getColumnValueMap().get(INPUT_COLUMN_FIELD);
+						if (identifierObject instanceof List<?>)
 						{
-							codingState.getInvalidIndividuals().add(identifier.toString());
+							for (Object identifier : (List<?>) identifierObject)
+							{
+								codingState.getInvalidIndividuals().add(identifier.toString());
+							}
 						}
-					}
-					if (inputColumnsObject instanceof List<?>)
-					{
-						for (Object columnName : (List<?>) inputColumnsObject)
+						if (inputColumnsObject instanceof List<?>)
 						{
-							codingState.getMaxNumColumns().add(columnName.toString());
+							for (Object columnName : (List<?>) inputColumnsObject)
+							{
+								codingState.getMaxNumColumns().add(columnName.toString());
+							}
 						}
-					}
 
-					codingState.setSelectedCodeSystem(codeSystemObject.toString());
-					codingState.setThreshold(Integer.parseInt(thresholdObject.toString()));
-					codingState.setCodingJobName(codingJobName);
+						codingState.setSelectedCodeSystem(codeSystemObject.toString());
+						codingState.setThreshold(Integer.parseInt(thresholdObject.toString()));
+						codingState.setCodingJobName(codingJobName);
+					}
 				}
 			}
-		}
-		catch (Exception e)
-		{
-			result.put("success", false);
-			result.put("message", e.getMessage());
-		}
-		finally
-		{
-			isRecovering.decrementAndGet();
+			catch (Exception e)
+			{
+				result.put("success", false);
+				result.put("message", e.getMessage());
+			}
+			finally
+			{
+				isRecovering.decrementAndGet();
+			}
 		}
 
 		return result;

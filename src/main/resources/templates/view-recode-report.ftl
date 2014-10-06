@@ -165,6 +165,10 @@
 				</div>
 			</div><br><br>
 			<div class="row-fluid">
+				<button id="option-button" class="btn btn-primary" type="button">Options</button>
+			</div>
+			<div class="row-fluid" id="option-div" style="display:none;">
+				<br><legend></legend>
 				<button id="download-button" class="btn btn-inverse" type="button">Download</button>
 				<button id="finished-button" class="btn" type="button">Finish recoding</button>
 				<button id="backup-button" class="btn" type="button" style="float:right;">Backup data	</button>
@@ -183,6 +187,14 @@
 		});
 		molgenis.retrieveResult($('#matched-container'), $('#result-container'), '${selectedCodeSystem}', true, false);
 		molgenis.retrieveResult($('#unmatched-container'), $('#result-container'), '${selectedCodeSystem}', false, true);
+		
+		$('#option-button').click(function(){
+			if($('#option-div').is(':hidden')){
+				$('#option-div').show();
+			}else{
+				$('#option-div').hide();
+			}
+		});
 		
 		$('#finished-button').click(function(){
 			$('form:first').attr({
