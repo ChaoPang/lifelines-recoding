@@ -4,6 +4,7 @@ import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.Iterator;
@@ -35,7 +36,8 @@ public class AddCodesController
 {
 	private final SearchService elasticSearchImp;
 	private final static String VIEW_NAME = "view-upload-codes";
-	private final static List<String> ALLOWED_COLUMNS = Arrays.asList("name", "code", "codesystem");
+	private final static List<String> MINIMAL_COLUMNS = Arrays.asList("name", "code", "codesystem");
+	private final static List<String> OPTIONAL_COLUMNS = Arrays.asList("date", "original", "frequency");
 	private final static Logger logger = Logger.getLogger(AddCodesController.class);
 
 	@Autowired
@@ -172,15 +174,18 @@ public class AddCodesController
 
 	private boolean validateExcelColumnHeaders(Repository sheet)
 	{
-		int count = 0;
+		List<String> columnHeaders = new ArrayList<String>();
 		for (AttributeMetaData attribute : sheet.getEntityMetaData().getAttributes())
 		{
-			if (!ALLOWED_COLUMNS.contains(attribute.getName().toLowerCase()))
+			String attrNameLowerCase = attribute.getName().toLowerCase();
+			if (!MINIMAL_COLUMNS.contains(attrNameLowerCase) && !OPTIONAL_COLUMNS.contains(attrNameLowerCase))
 			{
 				return false;
 			}
-			count++;
+			columnHeaders.add(attrNameLowerCase);
 		}
-		return count == ALLOWED_COLUMNS.size();
+		if (!columnHeaders.containsAll(MINIMAL_COLUMNS)) return false;
+
+		return true;
 	}
 }
