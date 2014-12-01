@@ -18,6 +18,7 @@ public class CodingState
 	private final Set<String> invalidIndividuals = new HashSet<String>();
 
 	private Integer threshold = 80;
+	private Integer totalNumber = 0;
 	private String selectedCodeSystem = null;
 	private String codingJobName = null;
 	private String errorMessage = null;
@@ -84,6 +85,7 @@ public class CodingState
 	public void clearState()
 	{
 		isCoding = false;
+		totalNumber = 0;
 		rawActivities.clear();
 		mappedActivities.clear();
 		maxNumColumns.clear();
@@ -118,5 +120,15 @@ public class CodingState
 	public void setErrorMessage(String errorMessage)
 	{
 		this.errorMessage = errorMessage;
+	}
+
+	public void setTotalNumber(Integer totalNumber)
+	{
+		this.totalNumber = totalNumber;
+	}
+
+	public Integer getTotalNumber()
+	{
+		return totalNumber;
 	}
 }

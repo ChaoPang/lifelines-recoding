@@ -89,6 +89,7 @@ public class ViewRecodeController
 		model.addAttribute("isBackup", backupCodesInState.isBackupRunning());
 		model.addAttribute("isUploading", processVariableUtil.isUploading());
 		model.addAttribute("percentage", processVariableUtil.percentage());
+		model.addAttribute("totalNumber", codingState.getTotalNumber());
 		if (codingState.getErrorMessage() != null)
 		{
 			model.addAttribute("message", codingState.getErrorMessage());
@@ -113,8 +114,7 @@ public class ViewRecodeController
 
 	@RequestMapping(value = "/recovery", method = RequestMethod.POST, produces = APPLICATION_JSON_VALUE)
 	@ResponseBody
-	public Map<String, Object> recovery(@RequestBody
-	Map<String, Object> request)
+	public Map<String, Object> recovery(@RequestBody Map<String, Object> request)
 	{
 		if (request.containsKey("codingJobName") && !StringUtils.isEmpty(request.get("codingJobName").toString()))
 		{
@@ -136,9 +136,8 @@ public class ViewRecodeController
 
 	@RequestMapping(value = "/retrieve/{mapped}", method = RequestMethod.GET, produces = APPLICATION_JSON_VALUE)
 	@ResponseBody
-	public Map<String, Object> retrieveReport(@PathVariable
-	String mapped, @RequestParam(required = false, value = "maxNumber")
-	String maxNumberOption)
+	public Map<String, Object> retrieveReport(@PathVariable String mapped,
+			@RequestParam(required = false, value = "maxNumber") String maxNumberOption)
 	{
 		Map<String, Object> results = new HashMap<String, Object>();
 		try
@@ -196,8 +195,7 @@ public class ViewRecodeController
 
 	@RequestMapping(value = "/add", method = RequestMethod.POST, consumes = APPLICATION_JSON_VALUE)
 	@ResponseStatus(OK)
-	public void addDoc(@RequestBody
-	Map<String, Object> request)
+	public void addDoc(@RequestBody Map<String, Object> request)
 	{
 		if (request.containsKey("data") && request.get("data") != null && request.containsKey("score")
 				&& request.get("score") != null && request.containsKey("query") && request.get("query") != null
@@ -294,8 +292,7 @@ public class ViewRecodeController
 
 	@RequestMapping(value = "/unknown", method = RequestMethod.POST, consumes = APPLICATION_JSON_VALUE)
 	@ResponseStatus(OK)
-	public void unkonwnCode(@RequestBody
-	Map<String, Object> request)
+	public void unkonwnCode(@RequestBody Map<String, Object> request)
 	{
 		if (request.containsKey("codesystem") && request.get("codesystem") != null && request.containsKey("query")
 				&& request.get("query") != null)
@@ -332,8 +329,7 @@ public class ViewRecodeController
 
 	@RequestMapping(value = "/remove", method = RequestMethod.POST, consumes = APPLICATION_JSON_VALUE)
 	@ResponseStatus(OK)
-	public void removeCodedResult(@RequestBody
-	Map<String, Object> request)
+	public void removeCodedResult(@RequestBody Map<String, Object> request)
 	{
 		if (request.containsKey("query") && request.get("query") != null)
 		{
@@ -354,8 +350,7 @@ public class ViewRecodeController
 	}
 
 	@RequestMapping(value = "/threshold", method = RequestMethod.POST)
-	public String threshold(@RequestParam("threshold")
-	String threshold, Model model)
+	public String threshold(@RequestParam("threshold") String threshold, Model model)
 	{
 		Integer previousThreshold = codingState.getThreshold();
 		try
@@ -407,12 +402,12 @@ public class ViewRecodeController
 	}
 
 	@RequestMapping(value = "/upload", method = RequestMethod.POST, headers = "Content-Type=multipart/form-data")
-	public String uploadFileHandler(@RequestParam("file")
-	MultipartFile file, @RequestParam(value = "selectedCodeSystem", required = false)
-	String codeSystem, @RequestParam(value = "codingJobName", required = false)
-	String codingJobName, Model model) throws InvalidFormatException, IOException
+	public String uploadFileHandler(@RequestParam("file") MultipartFile multipartFile,
+			@RequestParam(value = "selectedCodeSystem", required = false) String codeSystem,
+			@RequestParam(value = "codingJobName", required = false) String codingJobName, Model model)
+			throws InvalidFormatException, IOException
 	{
-		if (!file.isEmpty() && !StringUtils.isEmpty(codeSystem) && !StringUtils.isEmpty(codingJobName))
+		if (!multipartFile.isEmpty() && !StringUtils.isEmpty(codeSystem) && !StringUtils.isEmpty(codingJobName))
 		{
 			if (backupCodesInState.checkBackupByName(codingJobName))
 			{
@@ -420,7 +415,8 @@ public class ViewRecodeController
 			}
 			else
 			{
-				processVariableUtil.processUploadedVariableData(file, codeSystem, codingJobName);
+				processVariableUtil.processUploadedVariableData(multipartFile.getInputStream(), codeSystem,
+						codingJobName);
 			}
 		}
 		else

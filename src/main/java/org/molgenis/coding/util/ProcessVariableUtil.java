@@ -1,10 +1,9 @@
 package org.molgenis.coding.util;
 
-import java.io.BufferedOutputStream;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.LineNumberReader;
 import java.util.Arrays;
 import java.util.Date;
@@ -26,12 +25,15 @@ import org.molgenis.data.csv.CsvRepository;
 import org.molgenis.data.processor.CellProcessor;
 import org.molgenis.data.processor.LowerCaseProcessor;
 import org.molgenis.data.processor.TrimProcessor;
+import org.molgenis.util.FileStore;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
-import org.springframework.web.multipart.MultipartFile;
 
 public class ProcessVariableUtil
 {
+	@Autowired
+	private FileStore fileStore;
+
 	private final SearchService elasticSearchImp;
 	private final CodingState codingState;
 	private final NGramService nGramService;
@@ -66,9 +68,10 @@ public class ProcessVariableUtil
 	}
 
 	@Async
-	public void processUploadedVariableData(MultipartFile file, String codeSystem, String codingJobName)
+	public void processUploadedVariableData(InputStream inputStream, String codeSystem, String codingJobName)
 			throws IOException
 	{
+		StringBuilder lastIndividualIdentifier = new StringBuilder();
 		isProcessRunning.incrementAndGet();
 		CsvRepository csvRepository = null;
 		try
@@ -77,11 +80,12 @@ public class ProcessVariableUtil
 			codingState.setCodingJobName(codingJobName);
 			codingState.setCoding(true);
 
-			File serverFile = createFileOnServer(file);
+			File serverFile = fileStore.store(inputStream, codingJobName + ".csv");
 
 			if (serverFile.exists())
 			{
 				totalLineNumber.set(getLineNumber(serverFile));
+				codingState.setTotalNumber(totalLineNumber.get());
 
 				csvRepository = new CsvRepository(new File(serverFile.getAbsolutePath()),
 						Arrays.<CellProcessor> asList(new LowerCaseProcessor(), new TrimProcessor()), ';');
@@ -101,7 +105,8 @@ public class ProcessVariableUtil
 						Entity entity = iterator.next();
 						String individualIdentifier = entity.getString("Identifier");
 						codingState.addInvalidIndividuals(individualIdentifier);
-
+						lastIndividualIdentifier.delete(0, lastIndividualIdentifier.length()).append(
+								individualIdentifier);
 						for (int columnIndex = 0; columnIndex < codingState.getMaxNumColumns().size(); columnIndex++)
 						{
 							String columnName = codingState.getMaxNumColumns().get(columnIndex);
@@ -152,6 +157,12 @@ public class ProcessVariableUtil
 		finally
 		{
 			if (csvRepository != null) csvRepository.close();
+			if (totalLineNumber.get() != finishedLineNumber.get())
+			{
+				codingState.clearState();
+				codingState.setErrorMessage("There are errors in line number " + (finishedLineNumber.get() + 2)
+						+ ", please check the input file!");
+			}
 			totalLineNumber.set(0);
 			finishedLineNumber.set(0);
 			isProcessRunning.decrementAndGet();
@@ -169,20 +180,6 @@ public class ProcessVariableUtil
 			}
 		}
 		return true;
-	}
-
-	public static File createFileOnServer(MultipartFile file) throws IOException
-	{
-		String rootPath = System.getProperty("java.io.tmpdir");
-		File dir = new File(rootPath + File.separator + "tmpFiles");
-		if (!dir.exists()) dir.mkdirs();
-		// Create the file on server
-		File serverFile = new File(dir.getAbsolutePath() + File.separator + file.getName() + ".csv");
-		BufferedOutputStream stream = new BufferedOutputStream(new FileOutputStream(serverFile));
-		stream.write(file.getBytes());
-		stream.close();
-		return serverFile;
-
 	}
 
 	public static int getLineNumber(File file) throws IOException
