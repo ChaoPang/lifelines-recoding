@@ -114,13 +114,6 @@
 		});
 	};
 
-	molgenis.downloadCodeSystem = function(codeSystem) {
-		$.ajax({
-			type : 'GET',
-			url : '/view/download/' + codeSystem
-		});
-	};
-
 	molgenis.retrieveAllCodes = function(codeSystem, container) {
 		if (codeSystem !== null && codeSystem !== '') {
 			$
