@@ -53,8 +53,7 @@ public class AddCodesController
 	}
 
 	@RequestMapping(value = "/upload", method = RequestMethod.POST, headers = "Content-Type=multipart/form-data")
-	public String uploadFileHandler(@RequestParam("file")
-	MultipartFile file, Model model)
+	public String uploadFileHandler(@RequestParam("file") MultipartFile file, Model model)
 	{
 		if (!file.isEmpty())
 		{
@@ -113,9 +112,12 @@ public class AddCodesController
 									public Entity next()
 									{
 										Entity entity = new MapEntity(iterator.next());
-										entity.set(ElasticSearchImp.DEFAULT_FREQUENCY_FIELD, Integer.valueOf(1));
-										entity.set(ElasticSearchImp.DEFAULT_ORIGINAL_FIELD, true);
-										entity.set(ElasticSearchImp.DEFAULT_DATE_FIELD, indexDataTime);
+										if (entity.get(ElasticSearchImp.DEFAULT_FREQUENCY_FIELD) == null) entity.set(
+												ElasticSearchImp.DEFAULT_FREQUENCY_FIELD, Integer.valueOf(1));
+										if (entity.get(ElasticSearchImp.DEFAULT_ORIGINAL_FIELD) == null) entity.set(
+												ElasticSearchImp.DEFAULT_ORIGINAL_FIELD, true);
+										if (entity.get(ElasticSearchImp.DEFAULT_DATE_FIELD) == null) entity.set(
+												ElasticSearchImp.DEFAULT_DATE_FIELD, indexDataTime);
 										return entity;
 									}
 
