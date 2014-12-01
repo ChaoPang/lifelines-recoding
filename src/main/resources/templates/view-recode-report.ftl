@@ -154,14 +154,19 @@
 	</div>
 	<div class="row-fluid">
 		<div class="offset3 span6 well">
+			<div id="total-container" class="row-fluid">
+				<div class="span8">
+					The total number of individuals is <strong><span>${totalNumber}</span></strong>
+				</div>
+			</div><br>
 			<div id="matched-container" class="row-fluid">
 				<div class="span8">
-					The total number of matched items is <strong><span id="total-matched"></span></strong>
+					The total number of unique matched items is <strong><span id="total-matched"></span></strong>
 				</div>
 			</div><br>
 			<div id="unmatched-container" class="row-fluid">
 				<div class="span8">
-					The total number of unmatched items is <strong><span id="total-unmatched"></span></strong>
+					The total number of unique 	unmatched items is <strong><span id="total-unmatched"></span></strong>
 				</div>
 			</div><br><br>
 			<div class="row-fluid">
