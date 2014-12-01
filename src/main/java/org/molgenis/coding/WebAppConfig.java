@@ -9,6 +9,7 @@ import org.molgenis.coding.elasticsearch.SearchService;
 import org.molgenis.coding.ngram.NGramService;
 import org.molgenis.coding.util.DutchNGramAlgorithm;
 import org.molgenis.coding.util.ProcessVariableUtil;
+import org.molgenis.util.FileStore;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
@@ -69,6 +70,13 @@ public class WebAppConfig extends WebMvcConfigurerAdapter
 	public MultipartResolver multipartResolver()
 	{
 		return new StandardServletMultipartResolver();
+	}
+
+	@Bean
+	public FileStore fileStore()
+	{
+		String rootPath = System.getProperty("java.io.tmpdir");
+		return new FileStore(rootPath);
 	}
 
 	@Bean
