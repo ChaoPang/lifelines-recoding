@@ -324,9 +324,9 @@ public class ElasticSearchImp implements SearchService
 
 	public static Map<String, Object> addDefaultFields(Map<String, Object> data)
 	{
-		data.put(DEFAULT_FREQUENCY_FIELD, Integer.valueOf(1));
-		data.put(DEFAULT_ORIGINAL_FIELD, false);
-		data.put(DEFAULT_DATE_FIELD, new Date());
+		if (!data.containsKey(DEFAULT_FREQUENCY_FIELD)) data.put(DEFAULT_FREQUENCY_FIELD, Integer.valueOf(1));
+		if (!data.containsKey(DEFAULT_ORIGINAL_FIELD)) data.put(DEFAULT_ORIGINAL_FIELD, false);
+		if (!data.containsKey(DEFAULT_DATE_FIELD)) data.put(DEFAULT_DATE_FIELD, new Date());
 		return data;
 	}
 
