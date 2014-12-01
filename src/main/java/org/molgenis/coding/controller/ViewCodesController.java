@@ -3,11 +3,17 @@ package org.molgenis.coding.controller;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
 import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
+import javax.servlet.http.HttpServletResponse;
+
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.search.sort.SortOrder;
 import org.molgenis.coding.elasticsearch.CodingState;
@@ -16,9 +22,12 @@ import org.molgenis.coding.elasticsearch.Hit;
 import org.molgenis.coding.elasticsearch.SearchService;
 import org.molgenis.coding.ngram.NGramService;
 import org.molgenis.coding.util.RecodeResponse;
+import org.molgenis.data.csv.CsvWriter;
+import org.molgenis.data.support.MapEntity;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -63,8 +72,7 @@ public class ViewCodesController
 
 	@RequestMapping(method = RequestMethod.GET, value = "/alldocs", produces = APPLICATION_JSON_VALUE)
 	@ResponseBody
-	public Map<String, Object> getDocs(@RequestParam("codeSystem")
-	String codeSystem) throws IOException
+	public Map<String, Object> getDocs(@RequestParam("codeSystem") String codeSystem) throws IOException
 	{
 		Map<String, Object> results = new HashMap<String, Object>();
 		if (!StringUtils.isEmpty(codeSystem))
@@ -77,8 +85,7 @@ public class ViewCodesController
 
 	@RequestMapping(method = RequestMethod.POST, value = "/delete", consumes = APPLICATION_JSON_VALUE, produces = APPLICATION_JSON_VALUE)
 	@ResponseBody
-	public Map<String, Object> deleteCode(@RequestBody
-	Map<String, Object> request)
+	public Map<String, Object> deleteCode(@RequestBody Map<String, Object> request)
 	{
 		Map<String, Object> results = new HashMap<String, Object>();
 		if (request.containsKey("documentId") && request.get("documentId") != null
@@ -150,5 +157,43 @@ public class ViewCodesController
 			results.put("message", "Request does not contain required fields documentId and codesystem");
 		}
 		return results;
+	}
+
+	@RequestMapping(value = "/download/{codeSystem}", method = RequestMethod.GET)
+	public void download(@PathVariable String codeSystem, HttpServletResponse response) throws IOException
+	{
+		if (!StringUtils.isEmpty(codeSystem))
+		{
+			SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+			response.setContentType("text/csv");
+			response.addHeader("Content-Disposition",
+					"attachment; filename=" + codeSystem + "_" + dateFormat.format(new Date()) + ".csv");
+			CsvWriter summaryCsvWritier = null;
+			try
+			{
+				summaryCsvWritier = new CsvWriter(response.getOutputStream(), ';');
+				int count = 0;
+				for (Hit hit : elasticSearchImp.search(codeSystem, null, null, ElasticSearchImp.DEFAULT_DATE_FIELD,
+						SortOrder.DESC))
+				{
+					if (count == 0)
+					{
+						summaryCsvWritier.writeAttributeNames(hit.getColumnValueMap().keySet());
+						count++;
+					}
+
+					MapEntity mapEntity = new MapEntity();
+					for (Entry<String, Object> entry : hit.getColumnValueMap().entrySet())
+					{
+						mapEntity.set(entry.getKey(), entry.getValue());
+					}
+					summaryCsvWritier.add(mapEntity);
+				}
+			}
+			finally
+			{
+				if (summaryCsvWritier != null) IOUtils.closeQuietly(summaryCsvWritier);
+			}
+		}
 	}
 }
