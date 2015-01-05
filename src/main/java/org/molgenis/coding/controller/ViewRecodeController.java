@@ -282,6 +282,7 @@ public class ViewRecodeController
 											codingState.getRawActivities().get(activityName));
 									codingState.getMappedActivities().get(activityName)
 											.setHit(new Hit(hit.getDocumentId(), null, data));
+									codingState.getMappedActivities().get(activityName).getHit().setScore(score);
 									codingState.getMappedActivities().get(activityName).getIdentifiers()
 											.putAll(codingState.getRawActivities().get(activityName).getIdentifiers());
 									codingState.getRawActivities().remove(activityName);
