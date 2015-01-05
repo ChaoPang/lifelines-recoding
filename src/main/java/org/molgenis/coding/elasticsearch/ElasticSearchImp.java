@@ -102,7 +102,6 @@ public class ElasticSearchImp implements SearchService
 		indexRequestBuilder.setSource(doc);
 		bulkRequest.add(indexRequestBuilder);
 		BulkResponse response = bulkRequest.setRefresh(true).execute().actionGet();
-		LOG.info("Request done");
 		if (LOG.isDebugEnabled())
 		{
 			LOG.debug("BulkResponse:" + response);
@@ -111,6 +110,7 @@ public class ElasticSearchImp implements SearchService
 		{
 			throw new ElasticsearchException(response.buildFailureMessage());
 		}
+		LOG.info("Request done");
 	}
 
 	@Override
