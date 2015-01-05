@@ -212,7 +212,6 @@ public class ViewRecodeController
 					&& data.containsKey(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD)
 					&& data.get(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD) != null)
 			{
-
 				String queryString = request.get("query").toString();
 				String documentType = data.containsKey(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD)
 						&& data.get(ElasticSearchImp.DEFAULT_CODESYSTEM_FIELD) != null ? data.get(
@@ -237,6 +236,30 @@ public class ViewRecodeController
 					{
 						elasticSearchImp.indexDocument(
 								ElasticSearchImp.addDefaultFields(translateDataToMap(data, queryString)), documentType);
+
+						while (true)
+						{
+							List<Hit> searchHits = elasticSearchImp.search(documentType,
+									data.get(ElasticSearchImp.DEFAULT_NAME_FIELD).toString(),
+									ElasticSearchImp.DEFAULT_NAME_FIELD);
+							if (searchHits.size() > 0)
+							{
+								if (searchHits.get(0).getColumnValueMap().get(ElasticSearchImp.DEFAULT_CODE_FIELD)
+										.toString()
+										.equalsIgnoreCase(data.get(ElasticSearchImp.DEFAULT_CODE_FIELD).toString()))
+								{
+									break;
+								}
+							}
+							try
+							{
+								Thread.sleep(3000);
+							}
+							catch (Exception e)
+							{
+								throw new RuntimeException(e.getMessage());
+							}
+						}
 					}
 
 					for (String activityName : new HashSet<String>(codingState.getRawActivities().keySet()))
@@ -259,7 +282,6 @@ public class ViewRecodeController
 											codingState.getRawActivities().get(activityName));
 									codingState.getMappedActivities().get(activityName)
 											.setHit(new Hit(hit.getDocumentId(), null, data));
-									codingState.getMappedActivities().get(activityName).getHit().setScore(score);
 									codingState.getMappedActivities().get(activityName).getIdentifiers()
 											.putAll(codingState.getRawActivities().get(activityName).getIdentifiers());
 									codingState.getRawActivities().remove(activityName);
@@ -380,7 +402,7 @@ public class ViewRecodeController
 				}
 			}
 		}
-		else if (codingState.getThreshold() > previousThreshold)
+		else if (codingState.getThreshold() >= previousThreshold)
 		{
 			Set<String> keys = new HashSet<String>(codingState.getMappedActivities().keySet());
 			for (String activityName : keys)
@@ -393,6 +415,34 @@ public class ViewRecodeController
 					{
 						codingState.getRawActivities().put(activityName, recodeResponse);
 						codingState.getMappedActivities().remove(activityName);
+					}
+				}
+			}
+		}
+
+		for (String activityName : new HashSet<String>(codingState.getRawActivities().keySet()))
+		{
+			List<Hit> searchHits = elasticSearchImp.search(codingState.getSelectedCodeSystem(), activityName, null);
+			nGramService.calculateNGramSimilarity(activityName, "name", searchHits);
+			for (Hit hit : searchHits)
+			{
+				if (hit.getScore().intValue() >= codingState.getThreshold())
+				{
+					// Add/Remove the items to the matched
+					// /unmatched
+					// cateogires for which the
+					// matching scores have improved due to the
+					// manual
+					// curation
+					if (!codingState.getMappedActivities().containsKey(activityName))
+					{
+						codingState.getMappedActivities().put(activityName,
+								codingState.getRawActivities().get(activityName));
+						codingState.getMappedActivities().get(activityName).setHit(hit);
+						codingState.getMappedActivities().get(activityName).getIdentifiers()
+								.putAll(codingState.getRawActivities().get(activityName).getIdentifiers());
+						codingState.getRawActivities().remove(activityName);
+						break;
 					}
 				}
 			}
