@@ -173,8 +173,7 @@ public class ElasticSearchImp implements SearchService
 		{
 			StringBuilder queryStringBuilder = new StringBuilder();
 			String fuzzyQueryProcess = fuzzyQueryProcess(escapeValue(query));
-			if (field != null) queryStringBuilder.append(field).append(":(")
-					.append(fuzzyQueryProcess(escapeValue(query))).append(')');
+			if (field != null) queryStringBuilder.append(field).append(":(").append(fuzzyQueryProcess).append(')');
 			else queryStringBuilder.append(fuzzyQueryProcess);
 
 			searchRequestBuilder.setQuery(QueryBuilders.queryString(queryStringBuilder.toString()));
@@ -312,7 +311,7 @@ public class ElasticSearchImp implements SearchService
 	public static String escapeValue(String value)
 	{
 		StringBuilder stringBuilder = new StringBuilder();
-		for (String eachWord : value.replaceAll("[\\W]", " ").split("\\s+"))
+		for (String eachWord : value.toLowerCase().replaceAll("[\\W]", " ").split("\\s+"))
 		{
 			if (!eachWord.equalsIgnoreCase("AND") && !eachWord.equalsIgnoreCase("OR"))
 			{
