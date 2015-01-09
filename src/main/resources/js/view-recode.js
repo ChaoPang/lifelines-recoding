@@ -107,7 +107,8 @@
 												'hits' : data.results,
 												'parentElement' : resultContainer,
 												'addCode' : addCodeFunction,
-												'unknownCode' : unknownCode
+												'unknownCode' : unknownCode,
+												'codeSystem' : codeSystem
 											};
 											var inputTextQuery = $('<input type="text" placeholder="custom search"/>');
 											var matchButton = $('<button class="btn" type="button"><i class="icon-search"></i></button>');
@@ -131,19 +132,19 @@
 											matchButton.click(function() {
 												if ($(inputTextQuery).val() !== '') {
 													molgenis.findCode(inputTextQuery.val(), recodeResponse.queryString, codeSystem, function(data) {
-														resultContainer.find('div.row-fluid:gt(1)').remove();
+														resultContainer.find('div.row-fluid:gt(3)').remove();
 														var options = {
 															'queryString' : default_options.queryString,
 															'hits' : data.results,
 															'parentElement' : resultContainer,
 															'addCode' : addCodeFunction,
-															'unknownCode' : unknownCode
+															'unknownCode' : unknownCode,
+															'codeSystem' : codeSystem
 														};
 														molgenis.createTable(options);
 													});
 													$(clearButton).click(function() {
-														;
-														resultContainer.find('div.row-fluid:gt(1)').remove();
+														resultContainer.find('div.row-fluid:gt(3)').remove();
 														molgenis.createTable(default_options);
 														inputTextQuery.val('');
 													});

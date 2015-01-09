@@ -11,7 +11,7 @@
 		var unknownCode = (options.unknownCode
 				&& typeof options.unknownCode === 'function' ? options.unknownCode
 				: null);
-
+		var selectUnknowButton = $('<button class="btn btn-danger" type="button">Unknow code</button>');
 		if (hits.length > 0) {
 			var table = $('<table />').addClass('table table-bordered');
 			$('<tr />')
@@ -47,7 +47,6 @@
 					parentElement);
 			var controlContainer = $('<div />').addClass('row-fluid').appendTo(
 					parentElement);
-			var selectUnknowButton = $('<button class="btn btn-danger" type="button">Unknow code</button>');
 			var selectCodeButton = $('<button class="btn btn-primary btn-float-right" type="button">Code data</button>');
 			var addCodeButton = $('<button class="btn btn-float-right-align" type="button">Code and add</button>');
 			$('<div />').addClass('span12').append(table).appendTo(
@@ -80,26 +79,27 @@
 				});
 			});
 
-			selectUnknowButton.click(function() {
-				if (unknownCode) {
-					unknownCode({
-						'codesystem' : hits[0].columnValueMap.codesystem,
-						'query' : queryString
-					});
-					setTimeout(function() {
-						location.reload();
-					}, 1500);
-				} else {
-					console.log("The function is not defined!");
-				}
-			});
-
 		} else {
 			parentElement
 					.append('<div class="row-fluid middle-text"><br><br><center>No codes found for this input <strong>'
 							+ queryString
 							+ '</strong>. Please change your input string and try again!</center></div>');
+			parentElement.append(selectUnknowButton);
 		}
+		
+		selectUnknowButton.click(function() {
+			if (unknownCode) {
+				unknownCode({
+					'codesystem' : options.codeSystem,
+					'query' : queryString
+				});
+				setTimeout(function() {
+					location.reload();
+				}, 1500);
+			} else {
+				console.log("The function is not defined!");
+			}
+		});
 	};
 
 	molgenis.findAllCodeSystems = function(callback) {
