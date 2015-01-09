@@ -163,6 +163,7 @@ public class ViewRecodeController
 		}
 		catch (Exception e)
 		{
+			System.out.println(e.getMessage());
 			throw new RuntimeException(e.getMessage());
 		}
 

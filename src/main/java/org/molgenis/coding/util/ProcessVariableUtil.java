@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.LineNumberReader;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -122,13 +123,37 @@ public class ProcessVariableUtil
 									codingState.removeInvalidIndividuals(individualIdentifier);
 									List<Hit> searchHits = elasticSearchImp.search(codeSystem, activityName, null);
 									nGramService.calculateNGramSimilarity(activityName, "name", searchHits);
-									for (Hit hit : searchHits)
+									if (searchHits.size() > 0)
 									{
-										Map<String, RecodeResponse> activities = hit.getScore().intValue() >= codingState
-												.getThreshold() ? codingState.getMappedActivities() : codingState
-												.getRawActivities();
+										for (Hit hit : searchHits)
+										{
+											Map<String, RecodeResponse> activities = hit.getScore().intValue() >= codingState
+													.getThreshold() ? codingState.getMappedActivities() : codingState
+													.getRawActivities();
+											if (!activities.containsKey(activityName))
+											{
+												activities.put(activityName, new RecodeResponse(activityName, hit));
+											}
+											if (!activities.get(activityName).getIdentifiers()
+													.containsKey(individualIdentifier))
+											{
+												activities.get(activityName).getIdentifiers()
+														.put(individualIdentifier, new HashSet<Integer>());
+											}
+											activities.get(activityName).getIdentifiers().get(individualIdentifier)
+													.add(columnIndex);
+											activities.get(activityName).setAddedDate(indexedDate);
+											break;
+										}
+									}
+									else
+									{
+										Map<String, RecodeResponse> activities = codingState.getRawActivities();
 										if (!activities.containsKey(activityName))
 										{
+											Hit hit = new Hit(StringUtils.EMPTY, (float) 0,
+													Collections.<String, Object> emptyMap());
+											hit.setScore((float) 0);
 											activities.put(activityName, new RecodeResponse(activityName, hit));
 										}
 										if (!activities.get(activityName).getIdentifiers()
@@ -140,7 +165,6 @@ public class ProcessVariableUtil
 										activities.get(activityName).getIdentifiers().get(individualIdentifier)
 												.add(columnIndex);
 										activities.get(activityName).setAddedDate(indexedDate);
-										break;
 									}
 								}
 							}
