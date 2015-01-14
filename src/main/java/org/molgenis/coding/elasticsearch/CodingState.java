@@ -16,9 +16,10 @@ public class CodingState
 	private final Map<String, RecodeResponse> rawActivities = new HashMap<String, RecodeResponse>();
 	private final List<String> maxNumColumns = new ArrayList<String>();
 	private final Set<String> invalidIndividuals = new HashSet<String>();
+	private final Set<String> totalIndividuals = new HashSet<String>();
 
 	private Integer threshold = 80;
-	private Integer totalNumber = 0;
+	// private Integer totalNumber = 0;
 	private String selectedCodeSystem = null;
 	private String codingJobName = null;
 	private String errorMessage = null;
@@ -66,14 +67,19 @@ public class CodingState
 
 	public void addInvalidIndividuals(String identifier)
 	{
-		invalidIndividuals.add(identifier);
+		if (!invalidIndividuals.contains(identifier)) invalidIndividuals.add(identifier);
+	}
+
+	public void addIndividuals(String identifier)
+	{
+		if (!totalIndividuals.contains(identifier)) totalIndividuals.add(identifier);
 	}
 
 	public void addColumns(Iterable<AttributeMetaData> attributes)
 	{
 		for (AttributeMetaData attributeMetaData : attributes)
 		{
-			maxNumColumns.add(attributeMetaData.getName());
+			if (!maxNumColumns.contains(attributeMetaData.getName())) maxNumColumns.add(attributeMetaData.getName());
 		}
 	}
 
@@ -85,11 +91,12 @@ public class CodingState
 	public void clearState()
 	{
 		isCoding = false;
-		totalNumber = 0;
+		// totalNumber = 0;
 		rawActivities.clear();
 		mappedActivities.clear();
 		maxNumColumns.clear();
 		invalidIndividuals.clear();
+		totalIndividuals.clear();
 	}
 
 	public boolean isCoding()
@@ -122,13 +129,18 @@ public class CodingState
 		this.errorMessage = errorMessage;
 	}
 
-	public void setTotalNumber(Integer totalNumber)
-	{
-		this.totalNumber = totalNumber;
-	}
+	// public void setTotalNumber(Integer totalNumber)
+	// {
+	// this.totalNumber = totalNumber;
+	// }
+	//
+	// public Integer getTotalNumber()
+	// {
+	// return totalNumber;
+	// }
 
-	public Integer getTotalNumber()
+	public Set<String> getTotalIndividuals()
 	{
-		return totalNumber;
+		return totalIndividuals;
 	}
 }

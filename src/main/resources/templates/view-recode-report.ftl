@@ -131,7 +131,7 @@
 	});
 </script>
 <#else>
-<form method="GET">
+<form method="GET" enctype="multipart/form-data">
 	<input id="selectedCodeSystem" name="selectedCodeSystem" type="hidden"
 	<div class="row-fluid">
 		<div class="span12">
@@ -177,7 +177,24 @@
 				<button id="download-button" class="btn btn-inverse" type="button">Download</button>
 				<button id="finished-button" class="btn" type="button">Finish recoding</button>
 				<button id="backup-button" class="btn" type="button" style="float:right;">Backup data	</button>
-			</div>		
+				<br><br><legend></legend>
+				Upload missing values
+				<div class="fileupload fileupload-new" data-provides="fileupload">
+					<div class="input-append">
+						<div class="uneditable-input">
+							<i class="icon-file fileupload-exists"></i>
+							<span class="fileupload-preview"></span>
+						</div>
+						<span class="btn btn-file btn-info">
+							<span class="fileupload-new">Select file</span>
+							<span class="fileupload-exists">Change</span>
+							<input type="file" name="file" required/>
+						</span>
+						<a href="#" class="btn btn-danger fileupload-exists" data-dismiss="fileupload">Remove</a>
+						<button id="upload-button" class="btn btn-primary" type="button">Upload</button>
+					</div>
+				</div>
+			</div>
 		</div>
 	</div>
 	<div class="row-fluid">
@@ -221,8 +238,14 @@
 		});
 		$('#backup-button').click(function(){
 			$('form:first').attr({
-				'method' : 'get',
+				'method' : 'GET',
 				'action' : '/recode/backup/'
+			}).submit();
+		});
+		$('#upload-button').click(function(event){
+			$('form:first').attr({
+				'method' : 'POST',
+				'action' : '/recode/upload/missing'
 			}).submit();
 		});
 	});

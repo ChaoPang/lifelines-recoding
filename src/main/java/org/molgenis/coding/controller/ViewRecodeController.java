@@ -89,7 +89,8 @@ public class ViewRecodeController
 		model.addAttribute("isBackup", backupCodesInState.isBackupRunning());
 		model.addAttribute("isUploading", processVariableUtil.isUploading());
 		model.addAttribute("percentage", processVariableUtil.percentage());
-		model.addAttribute("totalNumber", codingState.getTotalNumber());
+		model.addAttribute("totalNumber", codingState.getTotalIndividuals().size());
+		model.addAttribute("codingJobName", codingState.getCodingJobName());
 		if (codingState.getErrorMessage() != null)
 		{
 			model.addAttribute("message", codingState.getErrorMessage());
@@ -451,6 +452,14 @@ public class ViewRecodeController
 		}
 
 		return "redirect:/recode";
+	}
+
+	@RequestMapping(value = "/upload/missing", method = RequestMethod.POST, headers = "Content-Type=multipart/form-data")
+	public String uploadMissingCaseFilehandler(@RequestParam("file") MultipartFile multipartFile, Model model)
+			throws InvalidFormatException, IOException
+	{
+		return uploadFileHandler(multipartFile, codingState.getSelectedCodeSystem(), codingState.getCodingJobName(),
+				model);
 	}
 
 	@RequestMapping(value = "/upload", method = RequestMethod.POST, headers = "Content-Type=multipart/form-data")

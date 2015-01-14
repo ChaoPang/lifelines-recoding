@@ -72,7 +72,6 @@ public class ProcessVariableUtil
 	public void processUploadedVariableData(InputStream inputStream, String codeSystem, String codingJobName)
 			throws IOException
 	{
-		StringBuilder lastIndividualIdentifier = new StringBuilder();
 		isProcessRunning.incrementAndGet();
 		CsvRepository csvRepository = null;
 		try
@@ -86,7 +85,7 @@ public class ProcessVariableUtil
 			if (serverFile.exists())
 			{
 				totalLineNumber.set(getLineNumber(serverFile));
-				codingState.setTotalNumber(totalLineNumber.get());
+				// codingState.setTotalNumber((codingState.getTotalNumber() + totalLineNumber.get()));
 
 				csvRepository = new CsvRepository(new File(serverFile.getAbsolutePath()),
 						Arrays.<CellProcessor> asList(new LowerCaseProcessor(), new TrimProcessor()), ';');
@@ -105,9 +104,8 @@ public class ProcessVariableUtil
 					{
 						Entity entity = iterator.next();
 						String individualIdentifier = entity.getString("Identifier");
+						codingState.addIndividuals(individualIdentifier);
 						codingState.addInvalidIndividuals(individualIdentifier);
-						lastIndividualIdentifier.delete(0, lastIndividualIdentifier.length()).append(
-								individualIdentifier);
 						for (int columnIndex = 0; columnIndex < codingState.getMaxNumColumns().size(); columnIndex++)
 						{
 							String columnName = codingState.getMaxNumColumns().get(columnIndex);
