@@ -179,6 +179,7 @@ public class BackupCodesInState
 									}
 								}
 								identifierMap.put(entry.getKey().toString(), columnIndices);
+								codingState.addIndividuals(entry.getKey().toString());
 							}
 						}
 
@@ -218,7 +219,8 @@ public class BackupCodesInState
 						{
 							for (Object identifier : (List<?>) identifierObject)
 							{
-								codingState.getInvalidIndividuals().add(identifier.toString());
+								codingState.addInvalidIndividuals(identifier.toString());
+								codingState.addIndividuals(identifier.toString());
 							}
 						}
 						if (inputColumnsObject instanceof List<?>)
