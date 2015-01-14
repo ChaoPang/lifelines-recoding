@@ -458,8 +458,14 @@ public class ViewRecodeController
 	public String uploadMissingCaseFilehandler(@RequestParam("file") MultipartFile multipartFile, Model model)
 			throws InvalidFormatException, IOException
 	{
-		return uploadFileHandler(multipartFile, codingState.getSelectedCodeSystem(), codingState.getCodingJobName(),
-				model);
+		if (!multipartFile.isEmpty() && !StringUtils.isEmpty(codingState.getSelectedCodeSystem())
+				&& !StringUtils.isEmpty(codingState.getCodingJobName()))
+		{
+			processVariableUtil.processUploadedVariableData(multipartFile.getInputStream(),
+					codingState.getSelectedCodeSystem(), codingState.getCodingJobName());
+		}
+
+		return "redirect:/recode";
 	}
 
 	@RequestMapping(value = "/upload", method = RequestMethod.POST, headers = "Content-Type=multipart/form-data")
