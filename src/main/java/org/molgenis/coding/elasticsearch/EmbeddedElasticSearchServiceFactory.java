@@ -3,6 +3,7 @@ package org.molgenis.coding.elasticsearch;
 import static org.elasticsearch.node.NodeBuilder.nodeBuilder;
 
 import java.io.Closeable;
+import java.io.File;
 import java.io.IOException;
 
 import org.apache.log4j.Logger;
@@ -13,8 +14,8 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.node.Node;
 
 /**
- * Factory for creating an embedded ElasticSearch server service. An elastic
- * search config file named 'elasticsearch.yml' must be on the classpath
+ * Factory for creating an embedded ElasticSearch server service. An elastic search config file named
+ * 'elasticsearch.yml' must be on the classpath
  * 
  * @author erwin
  * 
@@ -28,16 +29,34 @@ public class EmbeddedElasticSearchServiceFactory implements Closeable
 	private final Node node;
 
 	/**
-	 * Create an embedded ElasticSearch server service with the given index name
-	 * using 'elasticsearch.yml' and provided settings. The provided settings
-	 * override settings specified in 'elasticsearch.yml'
+	 * Create an embedded ElasticSearch server service with the given index name using 'elasticsearch.yml' and provided
+	 * settings. The provided settings override settings specified in 'elasticsearch.yml'
 	 * 
 	 * @param indexName
 	 * @param providedSettings
 	 */
 	public EmbeddedElasticSearchServiceFactory()
 	{
+		String molgenisHomeDir = System.getProperty("molgenis.home");
+		if (molgenisHomeDir == null)
+		{
+			throw new IllegalArgumentException("missing required java system property 'molgenis.home'");
+		}
+		if (!molgenisHomeDir.endsWith("/")) molgenisHomeDir = molgenisHomeDir + '/';
+
+		// create molgenis data directory if not exists
+		String homeDataDirStr = molgenisHomeDir + "data";
+		File molgenisDataDir = new File(homeDataDirStr);
+		if (!molgenisDataDir.exists())
+		{
+			if (!molgenisDataDir.mkdir())
+			{
+				throw new RuntimeException("failed to create directory: " + homeDataDirStr);
+			}
+		}
+
 		Builder builder = ImmutableSettings.settingsBuilder().loadFromClasspath(CONFIG_FILE_NAME);
+		builder.put("path.data", homeDataDirStr);
 
 		Settings settings = builder.build();
 		node = nodeBuilder().settings(settings).local(true).node();

@@ -40,6 +40,29 @@
 			</plugin>
 			
 		</plugins>
+		<pluginManagement>
+			<plugins>
+				<!-- web server -->
+				<plugin>
+					<groupId>org.mortbay.jetty</groupId>
+					<artifactId>jetty-maven-plugin</artifactId>
+					<configuration>
+						<stopPort>8079</stopPort>
+						<stopKey>jetty-stop</stopKey>
+						<systemProperties>
+							<systemProperty>
+								<name>molgenis.home</name>
+								<value>${user.home}${file.separator}.lifelines${file.separator}home</value>
+							</systemProperty>
+							<systemProperty>
+								<name>log4j.configuration</name>
+								<value>log4j-molgenis.properties</value>
+							</systemProperty>
+						</systemProperties>
+					</configuration>
+				</plugin>
+			</plugins>
+		</pluginManagement>
 	</build>
 	
 	<dependencies>
