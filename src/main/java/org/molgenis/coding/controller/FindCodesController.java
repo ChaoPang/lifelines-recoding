@@ -45,10 +45,28 @@ public class FindCodesController
 		return VIEW_NAME;
 	}
 
+	@RequestMapping(value = "/find/lucene", method = RequestMethod.POST, consumes = APPLICATION_JSON_VALUE, produces = APPLICATION_JSON_VALUE)
+	@ResponseBody
+	public Map<String, Object> searchLuceneDoc(@RequestBody Map<String, Object> request) throws IOException,
+			ParseException
+	{
+		Map<String, Object> results = new HashMap<String, Object>();
+		if (request.containsKey("query"))
+		{
+			Object field = request.get("field");
+			String queryString = request.get("query").toString();
+			String codeSystem = (request.containsKey("codeSystem") && request.get("codeSystem") != null) ? request.get(
+					"codeSystem").toString() : null;
+			List<Hit> searchResults = elasticSearchImp.search(codeSystem, queryString,
+					field == null ? null : field.toString());
+			results.put("results", searchResults);
+		}
+		return results;
+	}
+
 	@RequestMapping(value = "/find", method = RequestMethod.POST, consumes = APPLICATION_JSON_VALUE, produces = APPLICATION_JSON_VALUE)
 	@ResponseBody
-	public Map<String, Object> searchDoc(@RequestBody
-	Map<String, Object> request) throws IOException, ParseException
+	public Map<String, Object> searchDoc(@RequestBody Map<String, Object> request) throws IOException, ParseException
 	{
 		Map<String, Object> results = new HashMap<String, Object>();
 		if (request.containsKey("query"))
@@ -70,8 +88,7 @@ public class FindCodesController
 
 	@RequestMapping(value = "/add", method = RequestMethod.POST, consumes = APPLICATION_JSON_VALUE, produces = APPLICATION_JSON_VALUE)
 	@ResponseBody
-	public Map<String, Object> addDoc(@RequestBody
-	Map<String, Object> request) throws IOException, ParseException
+	public Map<String, Object> addDoc(@RequestBody Map<String, Object> request) throws IOException, ParseException
 	{
 		Map<String, Object> results = new HashMap<String, Object>();
 

@@ -50,6 +50,7 @@ public class ElasticSearchImp implements SearchService
 	public static final String DEFAULT_CODESYSTEM_FIELD = "codesystem";
 	public static final String DEFAULT_DATE_FIELD = "date";
 	public static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("E yyyy.MM.dd 'at' hh:mm:ss a zzz");
+	private static final int MAX_VALUE = 500;
 
 	public ElasticSearchImp(String indexName, Client client)
 	{
@@ -165,7 +166,7 @@ public class ElasticSearchImp implements SearchService
 	public List<Hit> search(String documentType, String query, String field, String sortField, SortOrder sortOrder)
 	{
 		SearchRequestBuilder searchRequestBuilder = client.prepareSearch(indexName);
-		searchRequestBuilder.setSize(Integer.MAX_VALUE);
+		searchRequestBuilder.setSize(MAX_VALUE);
 
 		if (documentType != null) searchRequestBuilder.setTypes(documentType);
 
