@@ -577,6 +577,12 @@ public class ViewRecodeController
 			zipOutputStream = new ZipOutputStream(response.getOutputStream());
 			zipFile(zipOutputStream, filePaths);
 
+			for (String filePath : filePaths)
+			{
+				File file = new File(filePath);
+				if (file.exists()) file.delete();
+			}
+
 		}
 		finally
 		{
