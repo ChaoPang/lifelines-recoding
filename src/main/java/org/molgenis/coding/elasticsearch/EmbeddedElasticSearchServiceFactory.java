@@ -38,6 +38,7 @@ public class EmbeddedElasticSearchServiceFactory implements Closeable
 	public EmbeddedElasticSearchServiceFactory()
 	{
 		String molgenisHomeDir = System.getProperty("molgenis.home");
+		LOG.info("The lifelines recoding system home folder is : " + molgenisHomeDir);
 		if (molgenisHomeDir == null)
 		{
 			throw new IllegalArgumentException("missing required java system property 'molgenis.home'");
