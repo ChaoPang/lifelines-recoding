@@ -1,10 +1,8 @@
 package org.molgenis.coding.util;
 
 import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.LineNumberReader;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
@@ -22,6 +20,7 @@ import org.molgenis.coding.ngram.NGramService;
 import org.molgenis.data.AttributeMetaData;
 import org.molgenis.data.Entity;
 import org.molgenis.data.EntityMetaData;
+import org.molgenis.data.Repository;
 import org.molgenis.data.csv.CsvRepository;
 import org.molgenis.data.processor.CellProcessor;
 import org.molgenis.data.processor.LowerCaseProcessor;
@@ -29,6 +28,8 @@ import org.molgenis.data.processor.TrimProcessor;
 import org.molgenis.util.FileStore;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
+
+import com.google.common.collect.Iterables;
 
 public class ProcessVariableUtil
 {
@@ -84,11 +85,12 @@ public class ProcessVariableUtil
 
 			if (serverFile.exists())
 			{
-				totalLineNumber.set(getLineNumber(serverFile));
 				// codingState.setTotalNumber((codingState.getTotalNumber() + totalLineNumber.get()));
 
 				csvRepository = new CsvRepository(new File(serverFile.getAbsolutePath()),
 						Arrays.<CellProcessor> asList(new LowerCaseProcessor(), new TrimProcessor()), ';');
+
+				totalLineNumber.set(getLineNumber(csvRepository));
 
 				if (validateExcelColumnHeaders(csvRepository.getEntityMetaData()))
 				{
@@ -104,6 +106,7 @@ public class ProcessVariableUtil
 					{
 						Entity entity = iterator.next();
 						String individualIdentifier = entity.getString("Identifier");
+
 						codingState.addIndividuals(individualIdentifier);
 						codingState.addInvalidIndividuals(individualIdentifier);
 						for (int columnIndex = 0; columnIndex < codingState.getMaxNumColumns().size(); columnIndex++)
@@ -204,22 +207,9 @@ public class ProcessVariableUtil
 		return true;
 	}
 
-	public static int getLineNumber(File file) throws IOException
+	public static int getLineNumber(Repository repository) throws IOException
 	{
-		int lineNumber = 0;
-		if (file.exists())
-		{
-			LineNumberReader lnr = new LineNumberReader(new FileReader(file));
-			try
-			{
-				lnr.skip(Long.MAX_VALUE);
-				lineNumber = lnr.getLineNumber();
-			}
-			finally
-			{
-				lnr.close();
-			}
-		}
+		int lineNumber = Iterables.size(repository);
 		return lineNumber;
 	}
 }
