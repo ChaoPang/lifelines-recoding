@@ -183,8 +183,8 @@ public class ProcessVariableUtil
 					else
 					{
 						codingState.clearState();
-						codingState.setErrorMessage("There are errors in line number "
-								+ StringUtils.join(detectIllegalLines, FILE_SEPARATOR_CHAR));
+						codingState.setErrorMessage("There are errors in line number : "
+								+ StringUtils.join(detectIllegalLines, " , "));
 					}
 				}
 			}
