@@ -1,15 +1,17 @@
 package org.molgenis.coding.util;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.lang3.StringUtils;
@@ -26,6 +28,8 @@ import org.molgenis.data.processor.CellProcessor;
 import org.molgenis.data.processor.LowerCaseProcessor;
 import org.molgenis.data.processor.TrimProcessor;
 import org.molgenis.util.FileStore;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 
@@ -40,9 +44,14 @@ public class ProcessVariableUtil
 	private final CodingState codingState;
 	private final NGramService nGramService;
 
+	private final static char FILE_SEPARATOR_CHAR = ';';
+	private final static String FILE_SEPARATOR_STRING = ";";
+	private final static String IDENTIFIER_REG_EXP = "\\d*";
 	private final AtomicInteger isProcessRunning = new AtomicInteger();
 	private final AtomicInteger totalLineNumber = new AtomicInteger();
 	private final AtomicInteger finishedLineNumber = new AtomicInteger();
+
+	private final static Logger LOGGER = LoggerFactory.getLogger(ProcessVariableUtil.class);
 
 	@Autowired
 	public ProcessVariableUtil(SearchService elasticSearchImp, CodingState codingState, NGramService nGramService)
@@ -85,55 +94,74 @@ public class ProcessVariableUtil
 
 			if (serverFile.exists())
 			{
-				// codingState.setTotalNumber((codingState.getTotalNumber() + totalLineNumber.get()));
-
-				csvRepository = new CsvRepository(new File(serverFile.getAbsolutePath()),
-						Arrays.<CellProcessor> asList(new LowerCaseProcessor(), new TrimProcessor()), ';');
-
-				totalLineNumber.set(getLineNumber(csvRepository));
+				csvRepository = new CsvRepository(serverFile, Arrays.<CellProcessor> asList(new LowerCaseProcessor(),
+						new TrimProcessor()), FILE_SEPARATOR_CHAR);
 
 				if (validateExcelColumnHeaders(csvRepository.getEntityMetaData()))
 				{
-					// Map to store the activity name with corresponding
-					// individuals
-					Iterator<Entity> iterator = csvRepository.iterator();
-
-					codingState.addColumns(csvRepository.getEntityMetaData().getAttributes());
-
-					Date indexedDate = new Date();
-
-					while (iterator.hasNext())
+					Set<Integer> detectIllegalLines = detectIllegalLines(serverFile);
+					if (detectIllegalLines.size() == 0)
 					{
-						Entity entity = iterator.next();
-						String individualIdentifier = entity.getString("Identifier").trim();
+						// Map to store the activity name with corresponding
+						// individuals
+						codingState.addColumns(csvRepository.getEntityMetaData().getAttributes());
+						totalLineNumber.set(getLineNumber(csvRepository));
+						Date indexedDate = new Date();
 
-						codingState.addIndividuals(individualIdentifier);
-						codingState.addInvalidIndividuals(individualIdentifier);
-						for (int columnIndex = 0; columnIndex < codingState.getMaxNumColumns().size(); columnIndex++)
+						for (Entity entity : csvRepository)
 						{
-							String columnName = codingState.getMaxNumColumns().get(columnIndex);
-
-							if (columnName.equalsIgnoreCase("identifier")) continue;
-
-							if (columnName.toLowerCase().startsWith("name"))
+							String individualIdentifier = entity.getString("Identifier") == null ? null : entity
+									.getString("Identifier").trim();
+							codingState.addIndividuals(individualIdentifier);
+							codingState.addInvalidIndividuals(individualIdentifier);
+							for (int columnIndex = 0; columnIndex < codingState.getMaxNumColumns().size(); columnIndex++)
 							{
-								String activityName = entity.getString(columnName).trim();
+								String columnName = codingState.getMaxNumColumns().get(columnIndex);
 
-								if (StringUtils.isNotEmpty(individualIdentifier)
-										&& StringUtils.isNotEmpty(activityName))
+								if (columnName.equalsIgnoreCase("identifier")) continue;
+
+								if (columnName.toLowerCase().startsWith("name"))
 								{
-									codingState.removeInvalidIndividuals(individualIdentifier);
-									List<Hit> searchHits = elasticSearchImp.search(codeSystem, activityName, null);
-									nGramService.calculateNGramSimilarity(activityName, "name", searchHits);
-									if (searchHits.size() > 0)
+									String activityName = entity.getString(columnName) == null ? null : entity
+											.getString(columnName).trim();
+
+									if (StringUtils.isNotEmpty(individualIdentifier)
+											&& StringUtils.isNotEmpty(activityName))
 									{
-										for (Hit hit : searchHits)
+										codingState.removeInvalidIndividuals(individualIdentifier);
+										List<Hit> searchHits = elasticSearchImp.search(codeSystem, activityName, null);
+										nGramService.calculateNGramSimilarity(activityName, "name", searchHits);
+										if (searchHits.size() > 0)
 										{
-											Map<String, RecodeResponse> activities = hit.getScore().intValue() >= codingState
-													.getThreshold() ? codingState.getMappedActivities() : codingState
-													.getRawActivities();
+											for (Hit hit : searchHits)
+											{
+												Map<String, RecodeResponse> activities = hit.getScore().intValue() >= codingState
+														.getThreshold() ? codingState.getMappedActivities() : codingState
+														.getRawActivities();
+												if (!activities.containsKey(activityName))
+												{
+													activities.put(activityName, new RecodeResponse(activityName, hit));
+												}
+												if (!activities.get(activityName).getIdentifiers()
+														.containsKey(individualIdentifier))
+												{
+													activities.get(activityName).getIdentifiers()
+															.put(individualIdentifier, new HashSet<Integer>());
+												}
+												activities.get(activityName).getIdentifiers().get(individualIdentifier)
+														.add(columnIndex);
+												activities.get(activityName).setAddedDate(indexedDate);
+												break;
+											}
+										}
+										else
+										{
+											Map<String, RecodeResponse> activities = codingState.getRawActivities();
 											if (!activities.containsKey(activityName))
 											{
+												Hit hit = new Hit(StringUtils.EMPTY, (float) 0,
+														Collections.<String, Object> emptyMap());
+												hit.setScore((float) 0);
 												activities.put(activityName, new RecodeResponse(activityName, hit));
 											}
 											if (!activities.get(activityName).getIdentifiers()
@@ -145,39 +173,26 @@ public class ProcessVariableUtil
 											activities.get(activityName).getIdentifiers().get(individualIdentifier)
 													.add(columnIndex);
 											activities.get(activityName).setAddedDate(indexedDate);
-											break;
 										}
-									}
-									else
-									{
-										Map<String, RecodeResponse> activities = codingState.getRawActivities();
-										if (!activities.containsKey(activityName))
-										{
-											Hit hit = new Hit(StringUtils.EMPTY, (float) 0,
-													Collections.<String, Object> emptyMap());
-											hit.setScore((float) 0);
-											activities.put(activityName, new RecodeResponse(activityName, hit));
-										}
-										if (!activities.get(activityName).getIdentifiers()
-												.containsKey(individualIdentifier))
-										{
-											activities.get(activityName).getIdentifiers()
-													.put(individualIdentifier, new HashSet<Integer>());
-										}
-										activities.get(activityName).getIdentifiers().get(individualIdentifier)
-												.add(columnIndex);
-										activities.get(activityName).setAddedDate(indexedDate);
 									}
 								}
 							}
+							finishedLineNumber.incrementAndGet();
 						}
-						finishedLineNumber.incrementAndGet();
+					}
+					else
+					{
+						codingState.clearState();
+						codingState.setErrorMessage("There are errors in line number "
+								+ StringUtils.join(detectIllegalLines, FILE_SEPARATOR_CHAR));
 					}
 				}
 			}
 		}
 		catch (Throwable e)
 		{
+			LOGGER.info("The error occurred at line : " + (finishedLineNumber.get() + 1) + "; The exception is : "
+					+ e.getMessage());
 			codingState.clearState();
 		}
 		finally
@@ -193,6 +208,29 @@ public class ProcessVariableUtil
 			finishedLineNumber.set(0);
 			isProcessRunning.decrementAndGet();
 		}
+	}
+
+	private Set<Integer> detectIllegalLines(File serverFile) throws IOException
+	{
+		Set<Integer> illegalLineNumbers = new HashSet<Integer>();
+		BufferedReader br = new BufferedReader(new FileReader(serverFile));
+		String line = null;
+		int lineNumber = 1;
+		while ((line = br.readLine()) != null)
+		{
+			if (lineNumber != 1 && StringUtils.isNotEmpty(line))
+			{
+				String[] fragments = line.split(FILE_SEPARATOR_STRING);
+				String identifier = fragments[0];
+				if (StringUtils.isEmpty(identifier) || !identifier.matches(IDENTIFIER_REG_EXP))
+				{
+					illegalLineNumbers.add(lineNumber);
+				}
+			}
+			lineNumber++;
+		}
+		br.close();
+		return illegalLineNumbers;
 	}
 
 	private boolean validateExcelColumnHeaders(EntityMetaData entityMetaData)
