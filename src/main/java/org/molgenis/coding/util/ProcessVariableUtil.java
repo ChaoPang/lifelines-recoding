@@ -5,13 +5,14 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.lang3.StringUtils;
@@ -99,7 +100,7 @@ public class ProcessVariableUtil
 
 				if (validateExcelColumnHeaders(csvRepository.getEntityMetaData()))
 				{
-					Set<Integer> detectIllegalLines = detectIllegalLines(serverFile);
+					List<Integer> detectIllegalLines = detectIllegalLines(serverFile);
 					if (detectIllegalLines.size() == 0)
 					{
 						// Map to store the activity name with corresponding
@@ -210,9 +211,9 @@ public class ProcessVariableUtil
 		}
 	}
 
-	private Set<Integer> detectIllegalLines(File serverFile) throws IOException
+	private List<Integer> detectIllegalLines(File serverFile) throws IOException
 	{
-		Set<Integer> illegalLineNumbers = new HashSet<Integer>();
+		List<Integer> illegalLineNumbers = new ArrayList<Integer>();
 		BufferedReader br = new BufferedReader(new FileReader(serverFile));
 		String line = null;
 		int lineNumber = 1;
@@ -230,6 +231,16 @@ public class ProcessVariableUtil
 			lineNumber++;
 		}
 		br.close();
+		if (illegalLineNumbers.size() > 0)
+		{
+			Collections.sort(illegalLineNumbers, new Comparator<Integer>()
+			{
+				public int compare(Integer o1, Integer o2)
+				{
+					return o2.compareTo(o1);
+				}
+			});
+		}
 		return illegalLineNumbers;
 	}
 
