@@ -105,7 +105,7 @@ public class ProcessVariableUtil
 					while (iterator.hasNext())
 					{
 						Entity entity = iterator.next();
-						String individualIdentifier = entity.getString("Identifier");
+						String individualIdentifier = entity.getString("Identifier").trim();
 
 						codingState.addIndividuals(individualIdentifier);
 						codingState.addInvalidIndividuals(individualIdentifier);
@@ -117,9 +117,10 @@ public class ProcessVariableUtil
 
 							if (columnName.toLowerCase().startsWith("name"))
 							{
-								String activityName = entity.getString(columnName);
+								String activityName = entity.getString(columnName).trim();
 
-								if (!StringUtils.isEmpty(individualIdentifier) && !StringUtils.isEmpty(activityName))
+								if (StringUtils.isNotEmpty(individualIdentifier)
+										&& StringUtils.isNotEmpty(activityName))
 								{
 									codingState.removeInvalidIndividuals(individualIdentifier);
 									List<Hit> searchHits = elasticSearchImp.search(codeSystem, activityName, null);
