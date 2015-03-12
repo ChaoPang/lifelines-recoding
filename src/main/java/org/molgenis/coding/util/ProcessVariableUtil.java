@@ -130,17 +130,62 @@ public class ProcessVariableUtil
 											&& StringUtils.isNotEmpty(activityName))
 									{
 										codingState.removeInvalidIndividuals(individualIdentifier);
-										List<Hit> searchHits = elasticSearchImp.search(codeSystem, activityName, null);
-										nGramService.calculateNGramSimilarity(activityName, "name", searchHits);
-										if (searchHits.size() > 0)
+
+										// Check if the activities are already coded in existing coding jobs
+										if (codingState.getMappedActivities().containsKey(activityName)
+												|| codingState.getRawActivities().containsKey(activityName))
 										{
-											for (Hit hit : searchHits)
+											Map<String, RecodeResponse> activities;
+											if (codingState.getMappedActivities().containsKey(activityName)) activities = codingState
+													.getMappedActivities();
+											else activities = codingState.getRawActivities();
+
+											if (!activities.get(activityName).getIdentifiers()
+													.containsKey(individualIdentifier))
 											{
-												Map<String, RecodeResponse> activities = hit.getScore().intValue() >= codingState
-														.getThreshold() ? codingState.getMappedActivities() : codingState
-														.getRawActivities();
+												activities.get(activityName).getIdentifiers()
+														.put(individualIdentifier, new HashSet<Integer>());
+											}
+											activities.get(activityName).getIdentifiers().get(individualIdentifier)
+													.add(columnIndex);
+										}
+										else
+										{
+											List<Hit> searchHits = elasticSearchImp.search(codeSystem, activityName,
+													null);
+											nGramService.calculateNGramSimilarity(activityName, "name", searchHits);
+											if (searchHits.size() > 0)
+											{
+												for (Hit hit : searchHits)
+												{
+													Map<String, RecodeResponse> activities = hit.getScore().intValue() >= codingState
+															.getThreshold() ? codingState.getMappedActivities() : codingState
+															.getRawActivities();
+													if (!activities.containsKey(activityName))
+													{
+														activities.put(activityName, new RecodeResponse(activityName,
+																hit));
+													}
+													if (!activities.get(activityName).getIdentifiers()
+															.containsKey(individualIdentifier))
+													{
+														activities.get(activityName).getIdentifiers()
+																.put(individualIdentifier, new HashSet<Integer>());
+													}
+													activities.get(activityName).getIdentifiers()
+															.get(individualIdentifier).add(columnIndex);
+													activities.get(activityName).setAddedDate(indexedDate);
+													break;
+												}
+											}
+											else
+											{
+												Map<String, RecodeResponse> activities = codingState.getRawActivities();
 												if (!activities.containsKey(activityName))
 												{
+													Hit hit = new Hit(StringUtils.EMPTY, (float) 0,
+															Collections.<String, Object> emptyMap());
+													hit.setScore((float) 0);
 													activities.put(activityName, new RecodeResponse(activityName, hit));
 												}
 												if (!activities.get(activityName).getIdentifiers()
@@ -152,28 +197,7 @@ public class ProcessVariableUtil
 												activities.get(activityName).getIdentifiers().get(individualIdentifier)
 														.add(columnIndex);
 												activities.get(activityName).setAddedDate(indexedDate);
-												break;
 											}
-										}
-										else
-										{
-											Map<String, RecodeResponse> activities = codingState.getRawActivities();
-											if (!activities.containsKey(activityName))
-											{
-												Hit hit = new Hit(StringUtils.EMPTY, (float) 0,
-														Collections.<String, Object> emptyMap());
-												hit.setScore((float) 0);
-												activities.put(activityName, new RecodeResponse(activityName, hit));
-											}
-											if (!activities.get(activityName).getIdentifiers()
-													.containsKey(individualIdentifier))
-											{
-												activities.get(activityName).getIdentifiers()
-														.put(individualIdentifier, new HashSet<Integer>());
-											}
-											activities.get(activityName).getIdentifiers().get(individualIdentifier)
-													.add(columnIndex);
-											activities.get(activityName).setAddedDate(indexedDate);
 										}
 									}
 								}
