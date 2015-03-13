@@ -1,6 +1,5 @@
 package org.molgenis.coding.elasticsearch;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -10,7 +9,7 @@ import org.molgenis.data.Repository;
 
 public interface SearchService
 {
-	public void indexRepository(Repository repository) throws IOException;
+	public void indexRepository(Repository repository);
 
 	public void indexDocument(Map<String, Object> doc);
 

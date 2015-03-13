@@ -1,6 +1,5 @@
 package org.molgenis.coding.backup;
 
-import java.io.IOException;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -64,7 +63,7 @@ public class BackupCodesInState
 	}
 
 	@Async
-	public void index(boolean clear) throws IOException
+	public void index(boolean clear)
 	{
 		if (!isRecoveryRunning() && !isBackupRunning())
 		{

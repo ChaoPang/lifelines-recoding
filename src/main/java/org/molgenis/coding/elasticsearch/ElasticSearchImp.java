@@ -1,6 +1,5 @@
 package org.molgenis.coding.elasticsearch;
 
-import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -62,7 +61,7 @@ public class ElasticSearchImp implements SearchService
 	}
 
 	@Override
-	public void indexRepository(Repository repository) throws IOException
+	public void indexRepository(Repository repository)
 	{
 		Iterator<BulkRequestBuilder> requests = buildIndexRequest(repository);
 		while (requests.hasNext())
@@ -252,7 +251,7 @@ public class ElasticSearchImp implements SearchService
 		return new Iterator<BulkRequestBuilder>()
 		{
 			private final long rows = RepositoryUtils.count(repository);
-			private static final int docsPerBulk = 1000;
+			private static final int docsPerBulk = 500;
 			private final Iterator<? extends Entity> it = repository.iterator();
 			private int row = 0;
 
